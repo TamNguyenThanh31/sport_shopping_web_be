@@ -6,9 +6,10 @@ import com.runner.shopping.enums.converter.AuthProviderConverter;
 import com.runner.shopping.enums.converter.UserRoleConverter;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Getter;
+import org.springframework.security.core.GrantedAuthority;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "Users")
@@ -35,6 +36,9 @@ public class User {
     @Convert(converter = AuthProviderConverter.class)
     @Column(nullable = false)
     private AuthProvider provider = AuthProvider.LOCAL;
+
+    @Column(name = "phone_number", nullable = false)
+    private String phoneNumber;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
