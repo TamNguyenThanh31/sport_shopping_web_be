@@ -1,5 +1,6 @@
 package com.runner.shopping.security;
 
+import com.runner.shopping.enums.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -45,9 +46,10 @@ public class JwtUtil {
                 .getBody();
     }
 
-    public String generateToken(String username, String role) {
+    public String generateToken(String username, int roleValue) {
+        UserRole role = UserRole.fromValue(roleValue); // Chuyển số (1, 2, 3) thành CUSTOMER, STAFF, ADMIN
         Map<String, Object> claims = new HashMap<>();
-        claims.put("role", role);
+        claims.put("role", "ROLE_" + role.name()); // Thêm ROLE_: "ROLE_STAFF"
         return createToken(claims, username);
     }
 

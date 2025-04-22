@@ -18,6 +18,9 @@ public class ProductImage {
     @Column(name = "image_url", nullable = false)
     private String imageUrl;
 
+    @Column(name = "file_name")
+    private String fileName;
+
     @Column(name = "is_primary", nullable = false)
     private boolean isPrimary = false;
 

@@ -9,39 +9,28 @@ import com.runner.shopping.model.dto.ProductVariantDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.List;
+
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
 
-    // Product
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(source = "addedById", target = "addedBy")
+    @Mapping(source = "active", target = "active")
     Product toEntity(ProductDTO productDTO);
 
+    @Mapping(source = "addedBy", target = "addedById")
+    @Mapping(source = "active", target = "active")
     ProductDTO toDTO(Product product);
 
-    // ProductVariant
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
-    @Mapping(target = "productId", ignore = true) // productId sẽ được set riêng
-    ProductVariant toEntity(ProductVariantDTO variantDTO);
+    ProductVariant toEntity(ProductVariantDTO productVariantDTO);
 
-    ProductVariantDTO toDTO(ProductVariant variant);
+    ProductVariantDTO toDTO(ProductVariant productVariant);
 
-    // ProductImage
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
-    @Mapping(target = "productId", ignore = true) // productId sẽ được set riêng
-    ProductImage toEntity(ProductImageDTO imageDTO);
+    ProductImage toEntity(ProductImageDTO productImageDTO);
 
-    ProductImageDTO toDTO(ProductImage image);
+    ProductImageDTO toDTO(ProductImage productImage);
 
-    // Ánh xạ danh sách
-    Iterable<ProductDTO> toDTOList(Iterable<Product> products);
-    Iterable<ProductVariantDTO> toVariantDTOList(Iterable<ProductVariant> variants);
-    Iterable<ProductImageDTO> toImageDTOList(Iterable<ProductImage> images);
+    List<ProductImageDTO> toImageDTOList(List<ProductImage> images);
+
+    List<ProductVariantDTO> toVariantDTOList(List<ProductVariant> variants);
 }

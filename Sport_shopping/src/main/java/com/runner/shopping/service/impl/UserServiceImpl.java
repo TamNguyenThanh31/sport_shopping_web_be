@@ -117,9 +117,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Long getUserIdByUsername(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
-        return user.getId();
+        return userRepository.findByUsername(username)
+                .map(User::getId)
+                .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
     }
 
 }

@@ -1,5 +1,6 @@
 package com.runner.shopping.model.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.util.List;
@@ -12,7 +13,7 @@ public class ProductDTO {
     private Long categoryId;
     private String brand;
     private Long addedById;
-    private boolean isActive;
+    private boolean active;
     private List<ProductVariantDTO> variants;
     private List<ProductImageDTO> images;
 }

@@ -30,8 +30,8 @@ public class Product {
     @Column(name = "added_by")
     private Long addedBy;
 
-    @Column(name = "is_active", nullable = false)
-    private boolean isActive = true;
+    @Column(name = "active", nullable = false)
+    private boolean active = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -41,12 +41,4 @@ public class Product {
 
     @Column(nullable = false)
     private int deleted = 0;
-
-    public boolean isActive() {
-        return isActive;
-    }
-
-    public void setActive(boolean active) {
-        isActive = active;
-    }
 }
