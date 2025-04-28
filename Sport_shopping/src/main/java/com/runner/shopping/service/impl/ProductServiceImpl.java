@@ -11,6 +11,8 @@ import com.runner.shopping.service.LocalStorageService;
 import com.runner.shopping.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -67,9 +69,14 @@ public class ProductServiceImpl implements ProductService {
 
 
     @Override
-    public List<ProductDTO> getAllProducts() {
-        List<Product> products = productRepository.findAllNotDeleted();
-        List<Long> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+    public Page<ProductDTO> getAllProducts(Pageable pageable) {
+        // Lấy sản phẩm phân trang từ repository
+        Page<Product> productPage = productRepository.findAllNotDeleted(pageable);
+
+        // Lấy danh sách product IDs
+        List<Long> productIds = productPage.getContent().stream()
+                .map(Product::getId)
+                .collect(Collectors.toList());
 
         // Lấy tất cả variants và images theo productIds
         List<ProductVariant> variants = productVariantRepository.findByProductIdNotDeleted(productIds);
@@ -82,18 +89,16 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.groupingBy(ProductImage::getProductId));
 
         // Ánh xạ sang DTO
-        return products.stream()
-                .map(product -> {
-                    ProductDTO dto = productMapper.toDTO(product);
-                    dto.setVariants(productMapper.toVariantDTOList(
-                            variantMap.getOrDefault(product.getId(), List.of())
-                    ));
-                    dto.setImages(productMapper.toImageDTOList(
-                            imageMap.getOrDefault(product.getId(), List.of())
-                    ));
-                    return dto;
-                })
-                .collect(Collectors.toList());
+        return productPage.map(product -> {
+            ProductDTO dto = productMapper.toDTO(product);
+            dto.setVariants(productMapper.toVariantDTOList(
+                    variantMap.getOrDefault(product.getId(), List.of())
+            ));
+            dto.setImages(productMapper.toImageDTOList(
+                    imageMap.getOrDefault(product.getId(), List.of())
+            ));
+            return dto;
+        });
     }
 
     @Override
@@ -163,19 +168,36 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public List<ProductDTO> searchProducts(String keyword) {
-        return productRepository.searchByNameOrBrand(keyword).stream()
-                .map(product -> {
-                    ProductDTO dto = productMapper.toDTO(product);
-                    dto.setVariants(productMapper.toVariantDTOList(
-                            productVariantRepository.findByProductIdNotDeleted(product.getId())
-                    ));
-                    dto.setImages(productMapper.toImageDTOList(
-                            productImageRepository.findByProductIdNotDeleted(product.getId())
-                    ));
-                    return dto;
-                })
+    public Page<ProductDTO> searchProducts(String keyword, Pageable pageable) {
+        // Lấy sản phẩm phân trang từ repository
+        Page<Product> productPage = productRepository.searchByNameOrBrand(keyword, pageable);
+
+        // Lấy danh sách product IDs
+        List<Long> productIds = productPage.getContent().stream()
+                .map(Product::getId)
                 .collect(Collectors.toList());
+
+        // Lấy tất cả variants và images theo productIds
+        List<ProductVariant> variants = productVariantRepository.findByProductIdNotDeleted(productIds);
+        List<ProductImage> images = productImageRepository.findByProductIdInNotDeleted(productIds);
+
+        // Nhóm variants và images theo productId
+        Map<Long, List<ProductVariant>> variantMap = variants.stream()
+                .collect(Collectors.groupingBy(ProductVariant::getProductId));
+        Map<Long, List<ProductImage>> imageMap = images.stream()
+                .collect(Collectors.groupingBy(ProductImage::getProductId));
+
+        // Ánh xạ sang DTO
+        return productPage.map(product -> {
+            ProductDTO dto = productMapper.toDTO(product);
+            dto.setVariants(productMapper.toVariantDTOList(
+                    variantMap.getOrDefault(product.getId(), List.of())
+            ));
+            dto.setImages(productMapper.toImageDTOList(
+                    imageMap.getOrDefault(product.getId(), List.of())
+            ));
+            return dto;
+        });
     }
 
     private void validateCategory(Long categoryId) {

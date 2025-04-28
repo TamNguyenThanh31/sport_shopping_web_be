@@ -7,6 +7,9 @@ import com.runner.shopping.service.ProductService;
 import com.runner.shopping.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -79,10 +82,14 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductDTO>> getAllProducts() {
+    public ResponseEntity<Page<ProductDTO>> getAllProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            List<ProductDTO> products = productService.getAllProducts();
-            log.info("Retrieved {} products", products.size());
+            Pageable pageable = PageRequest.of(page, size);
+            Page<ProductDTO> products = productService.getAllProducts(pageable);
+            log.info("Retrieved {} products (page {}, size {})",
+                    products.getTotalElements(), page, size);
             return ResponseEntity.ok(products);
         } catch (Exception e) {
             log.error("Failed to retrieve products", e);
@@ -137,10 +144,15 @@ public class ProductController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<ProductDTO>> searchProducts(@RequestParam String keyword) {
+    public ResponseEntity<Page<ProductDTO>> searchProducts(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            List<ProductDTO> products = productService.searchProducts(keyword);
-            log.info("Found {} products matching keyword: {}", products.size(), keyword);
+            Pageable pageable = PageRequest.of(page, size);
+            Page<ProductDTO> products = productService.searchProducts(keyword, pageable);
+            log.info("Found {} products matching keyword: {} (page {}, size {})",
+                    products.getTotalElements(), keyword, page, size);
             return ResponseEntity.ok(products);
         } catch (Exception e) {
             log.error("Failed to search products with keyword: {}", keyword, e);

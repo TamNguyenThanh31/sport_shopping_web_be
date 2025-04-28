@@ -6,11 +6,12 @@ import com.runner.shopping.enums.UserRole;
 import com.runner.shopping.repository.UserRepository;
 import com.runner.shopping.service.UserService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 
 @AllArgsConstructor
@@ -46,12 +47,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User authenticate(String identifier, String password) {
-        // Tìm user theo username hoặc phoneNumber
         User user = userRepository.findByUsername(identifier)
                 .or(() -> userRepository.findByPhoneNumber(identifier))
                 .orElseThrow(() -> new RuntimeException("Invalid username or phone number"));
 
-        // Kiểm tra mật khẩu
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("Invalid password");
         }
@@ -61,24 +60,20 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User loginUser(String identifier, String password) {
-        // Tìm user theo username hoặc phoneNumber
         User user = userRepository.findByUsername(identifier)
                 .or(() -> userRepository.findByPhoneNumber(identifier))
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username/phone number or password"));
 
-        // Chỉ cho phép đăng nhập nếu provider là LOCAL
         if (user.getProvider() != AuthProvider.LOCAL) {
             throw new IllegalArgumentException("Please use Google OAuth2 to login");
         }
 
-        // Kiểm tra mật khẩu
         if (password == null || !passwordEncoder.matches(password, user.getPassword())) {
             throw new IllegalArgumentException("Invalid username/phone number or password");
         }
 
         return user;
     }
-
 
     @Override
     public User findById(Long id) {
@@ -98,8 +93,18 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> findAllByRole(UserRole role) {
-        return userRepository.findAllByRole(role);
+    public Page<User> findAllByRole(UserRole role, Pageable pageable) {
+        return userRepository.findAllByRole(role, pageable);
+    }
+
+    @Override
+    public Page<User> findAll(Pageable pageable) {
+        return userRepository.findAll(pageable);
+    }
+
+    @Override
+    public Page<User> searchUsers(String keyword, Pageable pageable) {
+        return userRepository.searchUsers(keyword, pageable);
     }
 
     @Override
@@ -121,5 +126,4 @@ public class UserServiceImpl implements UserService {
                 .map(User::getId)
                 .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
     }
-
 }

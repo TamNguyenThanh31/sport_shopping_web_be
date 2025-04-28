@@ -7,6 +7,9 @@ import com.runner.shopping.model.dto.UserDTO;
 import com.runner.shopping.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,10 +29,15 @@ public class AdminController {
 
     // Quản lý CUSTOMER
     @GetMapping("/customers")
-    public ResponseEntity<List<UserDTO>> getAllCustomers() {
-        List<User> customers = userService.findAllByRole(UserRole.CUSTOMER);
-        List<UserDTO> customerDTOs = customers.stream().map(userMapper::toDTO).collect(Collectors.toList());
-        return ResponseEntity.ok(customerDTOs);
+    public ResponseEntity<Page<UserDTO>> getAllCustomers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        log.debug("Fetching customers: page={}, size={}", page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserDTO> customerPage = userService.findAllByRole(UserRole.CUSTOMER, pageable)
+                .map(userMapper::toDTO);
+        log.info("Retrieved {} customers (page {}, size {})", customerPage.getTotalElements(), page, size);
+        return ResponseEntity.ok(customerPage);
     }
 
     @GetMapping("/customers/{id}")
@@ -75,10 +83,15 @@ public class AdminController {
 
     // Quản lý STAFF
     @GetMapping("/staff")
-    public ResponseEntity<List<UserDTO>> getAllStaff() {
-        List<User> staff = userService.findAllByRole(UserRole.STAFF);
-        List<UserDTO> staffDTOs = staff.stream().map(userMapper::toDTO).collect(Collectors.toList());
-        return ResponseEntity.ok(staffDTOs);
+    public ResponseEntity<Page<UserDTO>> getAllStaff(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        log.debug("Fetching staff: page={}, size={}", page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserDTO> staffPage = userService.findAllByRole(UserRole.STAFF, pageable)
+                .map(userMapper::toDTO);
+        log.info("Retrieved {} staff (page {}, size {})", staffPage.getTotalElements(), page, size);
+        return ResponseEntity.ok(staffPage);
     }
 
     @GetMapping("/staff/{id}")

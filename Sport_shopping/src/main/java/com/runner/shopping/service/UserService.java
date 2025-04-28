@@ -2,6 +2,8 @@ package com.runner.shopping.service;
 
 import com.runner.shopping.entity.User;
 import com.runner.shopping.enums.UserRole;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,7 +15,9 @@ public interface UserService {
     User findById(Long id);
     User findByUsername(String username);
     Optional<User> findByEmail(String email);
-    List<User> findAllByRole(UserRole role);
+    Page<User> findAllByRole(UserRole role, Pageable pageable);
+    Page<User> findAll(Pageable pageable);
+    Page<User> searchUsers(String keyword, Pageable pageable);
     User updateUser(User user);
     void deleteUser(Long id);
     Long getUserIdByUsername(String username);
