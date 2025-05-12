@@ -7,6 +7,6 @@ public class ProductImageDTO {
     private Long id;
     private Long productId;
     private String fileName;
-    private boolean isPrimary;
+    private boolean primary;
     private String imageUrl;
 }

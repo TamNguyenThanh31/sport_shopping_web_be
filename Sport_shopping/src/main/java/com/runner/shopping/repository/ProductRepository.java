@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    @Query("SELECT p FROM Product p WHERE p.deleted = 0")
+    @Query("SELECT p FROM Product p WHERE p.deleted = 0 AND p.active = true")
     Page<Product> findAllNotDeleted(Pageable pageable);
 
     @Query("SELECT p FROM Product p WHERE (p.name LIKE %:keyword% OR p.brand LIKE %:keyword%) AND p.deleted = 0")

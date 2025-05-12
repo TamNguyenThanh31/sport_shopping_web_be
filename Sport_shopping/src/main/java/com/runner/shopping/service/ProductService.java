@@ -12,7 +12,7 @@ public interface ProductService {
     ProductDTO createProduct(ProductDTO productDTO, List<MultipartFile> imageFiles, List<Boolean> isPrimaryFlags);
     Page<ProductDTO> getAllProducts(Pageable pageable);
     ProductDTO getProductById(Long id);
-    ProductDTO updateProduct(Long id, ProductDTO productDTO);
+    ProductDTO updateProduct(Long id, ProductDTO productDTO, List<MultipartFile> imageFiles, List<Boolean> isPrimaryFlags);
     void deleteProduct(Long id);
     Page<ProductDTO> searchProducts(String keyword, Pageable pageable);
 }

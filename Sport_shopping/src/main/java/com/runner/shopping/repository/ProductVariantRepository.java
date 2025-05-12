@@ -8,10 +8,13 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ProductVariantRepository extends JpaRepository<ProductVariant, Long> {
-
+    
     @Query("SELECT pv FROM ProductVariant pv WHERE pv.productId = :productId AND pv.deleted = 0")
     List<ProductVariant> findByProductIdNotDeleted(Long productId);
 
     @Query("SELECT v FROM ProductVariant v WHERE v.productId IN :productIds AND v.deleted = 0")
     List<ProductVariant> findByProductIdNotDeleted(@Param("productIds") List<Long> productIds);
+
+    @Query("SELECT pv FROM ProductVariant pv WHERE pv.productId = :productId")
+    List<ProductVariant> findByProductId(@Param("productId") Long productId);
 }

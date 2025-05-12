@@ -43,52 +43,87 @@ public class ProductServiceImpl implements ProductService {
         validateUser(productDTO.getAddedById());
         validateImageInputs(imageFiles, isPrimaryFlags);
 
-        // Save product
+        // Lưu sản phẩm
         Product product = productMapper.toEntity(productDTO);
         product = productRepository.save(product);
-        log.info("Created product with ID: {}", product.getId());
+        log.info("Đã tạo sản phẩm với ID: {}", product.getId());
 
-        // Save variants
+        // Lưu biến thể
         saveVariants(product.getId(), productDTO.getVariants());
 
-        // Save images
+        // Lưu hình ảnh
         saveImages(product.getId(), imageFiles, isPrimaryFlags);
 
-        // Lấy lại product và ánh xạ đầy đủ
+        // Lấy sản phẩm đã lưu và ánh xạ sang DTO
         Product savedProduct = findProductById(product.getId());
-        ProductDTO result = productMapper.toDTO(savedProduct);
-        result.setVariants(productMapper.toVariantDTOList(
-                productVariantRepository.findByProductIdNotDeleted(product.getId())
-        ));
-        result.setImages(productMapper.toImageDTOList(
-                productImageRepository.findByProductIdNotDeleted(product.getId())
-        ));
-
-        return result;
+        return mapToProductDTO(savedProduct);
     }
 
+    @Transactional
+    @Override
+    public ProductDTO updateProduct(Long id, ProductDTO productDTO, List<MultipartFile> imageFiles, List<Boolean> isPrimaryFlags) {
+        Product product = findProductById(id);
+        validateCategory(productDTO.getCategoryId());
+        validateUser(productDTO.getAddedById());
+
+        // Cập nhật thông tin sản phẩm
+        product.setName(productDTO.getName());
+        product.setDescription(productDTO.getDescription());
+        product.setCategoryId(productDTO.getCategoryId());
+        product.setBrand(productDTO.getBrand());
+        product.setAddedBy(productDTO.getAddedById());
+        product.setActive(productDTO.isActive());
+        product.setUpdatedAt(LocalDateTime.now());
+        productRepository.save(product);
+        log.info("Đã cập nhật thông tin sản phẩm với ID: {}", id);
+
+        // Cập nhật biến thể (xóa mềm cũ, lưu mới)
+        if (productDTO.getVariants() != null) {
+            List<ProductVariant> existingVariants = productVariantRepository.findByProductId(id);
+            existingVariants.forEach(variant -> variant.setDeleted(1));
+            productVariantRepository.saveAll(existingVariants);
+            saveVariants(id, productDTO.getVariants());
+            log.info("Đã cập nhật biến thể cho sản phẩm ID: {}", id);
+        }
+
+        // Cập nhật hình ảnh (xóa mềm cũ, lưu mới)
+        if (imageFiles != null && !imageFiles.isEmpty()) {
+            List<ProductImage> existingImages = productImageRepository.findByProductIdNotDeleted(id);
+            existingImages.forEach(image -> {
+                try {
+                    localStorageService.deleteImage(image.getImageUrl());
+                    image.setDeleted(1);
+                } catch (IOException e) {
+                    log.error("Không thể xóa hình ảnh: {}", image.getImageUrl(), e);
+                    throw new RuntimeException("Không thể xóa hình ảnh: " + image.getImageUrl(), e);
+                }
+            });
+            productImageRepository.saveAll(existingImages);
+            validateImageInputs(imageFiles, isPrimaryFlags);
+            saveImages(id, imageFiles, isPrimaryFlags);
+            log.info("Đã cập nhật hình ảnh cho sản phẩm ID: {}", id);
+        }
+
+        // Lấy sản phẩm đã cập nhật và ánh xạ sang DTO
+        Product updatedProduct = findProductById(id);
+        return mapToProductDTO(updatedProduct);
+    }
 
     @Override
     public Page<ProductDTO> getAllProducts(Pageable pageable) {
-        // Lấy sản phẩm phân trang từ repository
         Page<Product> productPage = productRepository.findAllNotDeleted(pageable);
-
-        // Lấy danh sách product IDs
         List<Long> productIds = productPage.getContent().stream()
                 .map(Product::getId)
                 .collect(Collectors.toList());
 
-        // Lấy tất cả variants và images theo productIds
         List<ProductVariant> variants = productVariantRepository.findByProductIdNotDeleted(productIds);
         List<ProductImage> images = productImageRepository.findByProductIdInNotDeleted(productIds);
 
-        // Nhóm variants và images theo productId
         Map<Long, List<ProductVariant>> variantMap = variants.stream()
                 .collect(Collectors.groupingBy(ProductVariant::getProductId));
         Map<Long, List<ProductImage>> imageMap = images.stream()
                 .collect(Collectors.groupingBy(ProductImage::getProductId));
 
-        // Ánh xạ sang DTO
         return productPage.map(product -> {
             ProductDTO dto = productMapper.toDTO(product);
             dto.setVariants(productMapper.toVariantDTOList(
@@ -104,41 +139,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductDTO getProductById(Long id) {
         Product product = findProductById(id);
-        ProductDTO dto = productMapper.toDTO(product);
-        dto.setVariants(productMapper.toVariantDTOList(
-                productVariantRepository.findByProductIdNotDeleted(id)
-        ));
-        dto.setImages(productMapper.toImageDTOList(
-                productImageRepository.findByProductIdNotDeleted(id)
-        ));
-        return dto;
-    }
-
-    @Transactional
-    @Override
-    public ProductDTO updateProduct(Long id, ProductDTO productDTO) {
-        Product product = findProductById(id);
-        validateCategory(productDTO.getCategoryId());
-        validateUser(productDTO.getAddedById());
-
-        // Update product
-        product.setName(productDTO.getName());
-        product.setDescription(productDTO.getDescription());
-        product.setCategoryId(productDTO.getCategoryId());
-        product.setBrand(productDTO.getBrand());
-        product.setAddedBy(productDTO.getAddedById());
-        product.setActive(productDTO.isActive());
-        product.setUpdatedAt(LocalDateTime.now());
-        productRepository.save(product);
-
-        ProductDTO dto = productMapper.toDTO(product);
-        dto.setVariants(productMapper.toVariantDTOList(
-                productVariantRepository.findByProductIdNotDeleted(id)
-        ));
-        dto.setImages(productMapper.toImageDTOList(
-                productImageRepository.findByProductIdNotDeleted(id)
-        ));
-        return dto;
+        return mapToProductDTO(product);
     }
 
     @Transactional
@@ -148,19 +149,17 @@ public class ProductServiceImpl implements ProductService {
         product.setDeleted(1);
         productRepository.save(product);
 
-        // Soft delete variants
         List<ProductVariant> variants = productVariantRepository.findByProductIdNotDeleted(id);
         variants.forEach(v -> v.setDeleted(1));
         productVariantRepository.saveAll(variants);
 
-        // Soft delete images and delete from storage
         List<ProductImage> images = productImageRepository.findByProductIdNotDeleted(id);
         images.forEach(image -> {
             try {
                 localStorageService.deleteImage(image.getImageUrl());
             } catch (IOException e) {
-                log.error("Failed to delete image: {}", image.getImageUrl(), e);
-                throw new RuntimeException("Failed to delete image: " + image.getImageUrl(), e);
+                log.error("Không thể xóa hình ảnh: {}", image.getImageUrl(), e);
+                throw new RuntimeException("Không thể xóa hình ảnh: " + image.getImageUrl(), e);
             }
             image.setDeleted(1);
         });
@@ -169,25 +168,19 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Page<ProductDTO> searchProducts(String keyword, Pageable pageable) {
-        // Lấy sản phẩm phân trang từ repository
         Page<Product> productPage = productRepository.searchByNameOrBrand(keyword, pageable);
-
-        // Lấy danh sách product IDs
         List<Long> productIds = productPage.getContent().stream()
                 .map(Product::getId)
                 .collect(Collectors.toList());
 
-        // Lấy tất cả variants và images theo productIds
         List<ProductVariant> variants = productVariantRepository.findByProductIdNotDeleted(productIds);
         List<ProductImage> images = productImageRepository.findByProductIdInNotDeleted(productIds);
 
-        // Nhóm variants và images theo productId
         Map<Long, List<ProductVariant>> variantMap = variants.stream()
                 .collect(Collectors.groupingBy(ProductVariant::getProductId));
         Map<Long, List<ProductImage>> imageMap = images.stream()
                 .collect(Collectors.groupingBy(ProductImage::getProductId));
 
-        // Ánh xạ sang DTO
         return productPage.map(product -> {
             ProductDTO dto = productMapper.toDTO(product);
             dto.setVariants(productMapper.toVariantDTOList(
@@ -203,48 +196,47 @@ public class ProductServiceImpl implements ProductService {
     private void validateCategory(Long categoryId) {
         categoryRepository.findById(categoryId)
                 .filter(c -> c.getDeleted() == 0)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found or deleted"));
+                .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại hoặc đã bị xóa"));
     }
 
     private void validateUser(Long userId) {
         userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
     }
 
     private void validateImageInputs(List<MultipartFile> imageFiles, List<Boolean> isPrimaryFlags) {
         if (imageFiles == null || imageFiles.isEmpty()) {
-            throw new IllegalArgumentException("At least one image is required");
+            throw new IllegalArgumentException("Cần ít nhất một hình ảnh");
         }
         if (isPrimaryFlags != null && isPrimaryFlags.size() != imageFiles.size()) {
-            throw new IllegalArgumentException("Number of primary flags must match number of images");
+            throw new IllegalArgumentException("Số lượng cờ chính phải khớp với số lượng hình ảnh");
         }
-        // Ensure at least one image is primary
         boolean hasPrimary = isPrimaryFlags != null && isPrimaryFlags.contains(true);
         if (!hasPrimary && !imageFiles.isEmpty()) {
-            log.warn("No primary image specified; setting first image as primary");
+            log.warn("Không có hình ảnh chính được chỉ định; đặt hình ảnh đầu tiên làm chính");
             isPrimaryFlags.set(0, true);
         }
     }
 
     private void saveVariants(Long productId, List<ProductVariantDTO> variantDTOs) {
         if (variantDTOs == null || variantDTOs.isEmpty()) {
-            log.warn("No variants provided for product {}", productId);
+            log.warn("Không có biến thể nào được cung cấp cho sản phẩm {}", productId);
             return;
         }
-        log.info("Saving {} variants for product {}", variantDTOs.size(), productId);
+        log.info("Lưu {} biến thể cho sản phẩm {}", variantDTOs.size(), productId);
         List<ProductVariant> variants = variantDTOs.stream()
                 .map(productMapper::toEntity)
                 .peek(v -> v.setProductId(productId))
                 .collect(Collectors.toList());
-        productVariantRepository.saveAll(variants); // Lưu hàng loạt
+        productVariantRepository.saveAll(variants);
     }
 
     private void saveImages(Long productId, List<MultipartFile> imageFiles, List<Boolean> isPrimaryFlags) {
         if (imageFiles == null || imageFiles.isEmpty()) {
-            log.warn("No images provided for product {}", productId);
+            log.warn("Không có hình ảnh nào được cung cấp cho sản phẩm {}", productId);
             return;
         }
-        log.info("Processing {} images for product {}", imageFiles.size(), productId);
+        log.info("Xử lý {} hình ảnh cho sản phẩm {}", imageFiles.size(), productId);
         for (int i = 0; i < imageFiles.size(); i++) {
             MultipartFile file = imageFiles.get(i);
             boolean isPrimary = isPrimaryFlags != null && i < isPrimaryFlags.size() && isPrimaryFlags.get(i);
@@ -259,10 +251,10 @@ public class ProductServiceImpl implements ProductService {
                 image.setCreatedAt(LocalDateTime.now());
                 image.setDeleted(0);
                 productImageRepository.save(image);
-                log.info("Saved image {} for product {}", file.getOriginalFilename(), productId);
+                log.info("Đã lưu hình ảnh {} cho sản phẩm {}", file.getOriginalFilename(), productId);
             } catch (IOException e) {
-                log.error("Failed to save image: {}", file.getOriginalFilename(), e);
-                throw new RuntimeException("Failed to save image: " + file.getOriginalFilename(), e);
+                log.error("Không thể lưu hình ảnh: {}", file.getOriginalFilename(), e);
+                throw new RuntimeException("Không thể lưu hình ảnh: " + file.getOriginalFilename(), e);
             }
         }
     }
@@ -270,6 +262,17 @@ public class ProductServiceImpl implements ProductService {
     private Product findProductById(Long id) {
         return productRepository.findById(id)
                 .filter(p -> p.getDeleted() == 0)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found or deleted"));
+                .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại hoặc đã bị xóa"));
+    }
+
+    private ProductDTO mapToProductDTO(Product product) {
+        ProductDTO dto = productMapper.toDTO(product);
+        dto.setVariants(productMapper.toVariantDTOList(
+                productVariantRepository.findByProductIdNotDeleted(product.getId())
+        ));
+        dto.setImages(productMapper.toImageDTOList(
+                productImageRepository.findByProductIdNotDeleted(product.getId())
+        ));
+        return dto;
     }
 }

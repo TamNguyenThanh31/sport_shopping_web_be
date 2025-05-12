@@ -22,7 +22,7 @@ public class ProductImage {
     private String fileName;
 
     @Column(name = "is_primary", nullable = false)
-    private boolean isPrimary = false;
+    private boolean primary = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

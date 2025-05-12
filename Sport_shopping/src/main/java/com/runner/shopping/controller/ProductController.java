@@ -109,25 +109,51 @@ public class ProductController {
         }
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(
+            value = "/{id}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ProductDTO> updateProduct(
             @PathVariable Long id,
-            @RequestBody ProductDTO productDTO,
+            @RequestPart("product") String productJson,
+            @RequestPart(value = "images", required = false) List<MultipartFile> imageFiles,
+            @RequestPart(value = "isPrimaryFlags", required = false) String isPrimaryFlagsJson,
             Authentication authentication) {
         try {
+            // Kiểm tra xác thực
             if (authentication == null || !authentication.isAuthenticated()) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User must be authenticated");
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Người dùng cần đăng nhập");
             }
             String username = authentication.getName();
             Long userId = userService.getUserIdByUsername(username);
-            productDTO.setAddedById(userId);
 
-            ProductDTO updatedProduct = productService.updateProduct(id, productDTO);
-            log.info("Updated product with ID: {}", id);
+            // Parse product JSON
+            ProductDTO productDTO = objectMapper.readValue(productJson, ProductDTO.class);
+            productDTO.setAddedById(userId); // Gán userId từ authentication
+            log.info("Parsed product for update: {}", productDTO);
+
+            // Parse isPrimaryFlags JSON
+            List<Boolean> isPrimaryFlags;
+            if (isPrimaryFlagsJson != null && !isPrimaryFlagsJson.trim().isEmpty()) {
+                isPrimaryFlags = objectMapper.readValue(isPrimaryFlagsJson, new TypeReference<List<Boolean>>() {});
+            } else {
+                // Nếu không gửi isPrimaryFlags, mặc định tất cả là false, trừ ảnh đầu tiên là true
+                isPrimaryFlags = imageFiles != null && !imageFiles.isEmpty()
+                        ? Collections.nCopies(imageFiles.size(), false)
+                        : Collections.emptyList();
+                if (!isPrimaryFlags.isEmpty()) {
+                    isPrimaryFlags.set(0, true); // Ảnh đầu tiên là primary
+                }
+            }
+            log.info("Parsed isPrimaryFlags for update: {}", isPrimaryFlags);
+
+            // Gọi service
+            ProductDTO updatedProduct = productService.updateProduct(id, productDTO, imageFiles, isPrimaryFlags);
+            log.info("Đã cập nhật sản phẩm với ID: {}", id);
             return ResponseEntity.ok(updatedProduct);
         } catch (Exception e) {
-            log.error("Failed to update product with ID: {}", id, e);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Failed to update product", e);
+            log.error("Không thể cập nhật sản phẩm với ID: {}", id, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể cập nhật sản phẩm", e);
         }
     }
 
