@@ -116,7 +116,7 @@ public class ProductServiceImpl implements ProductService {
                 .map(Product::getId)
                 .collect(Collectors.toList());
 
-        List<ProductVariant> variants = productVariantRepository.findByProductIdNotDeleted(productIds);
+        List<ProductVariant> variants = productVariantRepository.findByProductIdsNotDeleted(productIds);
         List<ProductImage> images = productImageRepository.findByProductIdInNotDeleted(productIds);
 
         Map<Long, List<ProductVariant>> variantMap = variants.stream()
@@ -173,7 +173,7 @@ public class ProductServiceImpl implements ProductService {
                 .map(Product::getId)
                 .collect(Collectors.toList());
 
-        List<ProductVariant> variants = productVariantRepository.findByProductIdNotDeleted(productIds);
+        List<ProductVariant> variants = productVariantRepository.findByProductIdsNotDeleted(productIds);
         List<ProductImage> images = productImageRepository.findByProductIdInNotDeleted(productIds);
 
         Map<Long, List<ProductVariant>> variantMap = variants.stream()

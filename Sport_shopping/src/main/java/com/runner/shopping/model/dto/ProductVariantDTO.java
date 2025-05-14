@@ -2,6 +2,8 @@ package com.runner.shopping.model.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 @Data
 public class ProductVariantDTO {
     private Long id;
@@ -9,6 +11,6 @@ public class ProductVariantDTO {
     private String size;
     private String color;
     private int stock;
-    private double price;
+    private BigDecimal price;
     private String sku;
 }

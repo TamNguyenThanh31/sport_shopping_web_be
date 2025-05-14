@@ -1,43 +1,38 @@
 package com.runner.shopping.entity;
 
-import lombok.Data;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ProductVariants")
-@Data
-public class ProductVariant {
+@Table(name = "Cart")
+@Getter
+@Setter
+public class Cart {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "product_id", nullable = false)
-    private Long productId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    private String size;
-
-    private String color;
-
-    @Column(nullable = false)
-    private int stock;
+    @Column(name = "variant_id", nullable = false)
+    private Long variantId;
 
     @Column(nullable = false)
-    private BigDecimal price;
+    private Integer quantity;
 
-    @Column(nullable = false)
-    private String sku;
+    @Column(name = "price_at_time", nullable = false)
+    private BigDecimal priceAtTime;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
-
-    @Column(nullable = false)
-    private int deleted = 0;
 
     @PreUpdate
     public void preUpdate() {

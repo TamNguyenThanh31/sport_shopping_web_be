@@ -41,4 +41,9 @@ public class Product {
 
     @Column(nullable = false)
     private int deleted = 0;
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
