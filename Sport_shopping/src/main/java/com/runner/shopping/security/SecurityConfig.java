@@ -1,6 +1,5 @@
 package com.runner.shopping.security;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,30 +13,85 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**", "/api/categories", "/api/categories/**", "/api/cart", "/api/cart/**").permitAll()
-                        .requestMatchers("/api/users/register", "/api/users/login", "/api/cart", "/api/cart/**").permitAll()
-                        .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/products", "/api/categories").hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
-                        .requestMatchers(HttpMethod.PUT, "/api/products/**", "/api/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
-                        .requestMatchers(HttpMethod.DELETE, "/api/products/**", "/api/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
-                        .requestMatchers("/api/users/update-customer").hasAnyAuthority("ROLE_CUSTOMER", "ROLE_ADMIN")
-                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-                        .anyRequest().authenticated()
-                )
-                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-        return http.build();
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter();
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                // Vô hiệu hóa CSRF vì sử dụng JWT
+                .csrf(csrf -> csrf.disable())
+                // Sử dụng session stateless cho JWT
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Cấu hình phân quyền
+                .authorizeHttpRequests(auth -> auth
+                        // Public endpoints (không cần xác thực)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/products",
+                                "/api/products/**",
+                                "/api/categories",
+                                "/api/categories/**").permitAll()
+                        .requestMatchers(
+                                "/api/users/register",
+                                "/api/users/login",
+                                "/uploads/**",
+                                "/error").permitAll()
+                        // Customer endpoints
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/orders",
+                                "/api/addresses").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/orders",
+                                "/api/orders/**",
+                                "/api/addresses",
+                                "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/cart",
+                                "/api/payments").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/cart",
+                                "/api/cart/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/cart/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/cart/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/users/update-customer").hasAnyAuthority("ROLE_CUSTOMER", "ROLE_ADMIN")
+                        // Staff endpoints
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/promotions").hasAuthority("ROLE_STAFF")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/promotions/**").hasAuthority("ROLE_STAFF")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/promotions/**").hasAuthority("ROLE_STAFF")
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/promotions",
+                                "/api/promotions/**").hasAuthority("ROLE_STAFF")
+                        // Staff và Admin endpoints
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/products",
+                                "/api/categories").hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/products/**",
+                                "/api/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/products/**",
+                                "/api/categories/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")
+                        // Admin endpoints
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        // Tất cả các request khác yêu cầu xác thực
+                        .anyRequest().authenticated()
+                )
+                // Thêm JWT filter trước UsernamePasswordAuthenticationFilter
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
     }
 }
