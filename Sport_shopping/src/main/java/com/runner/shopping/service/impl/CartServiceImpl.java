@@ -1,10 +1,10 @@
 package com.runner.shopping.service.impl;
 
-
 import com.runner.shopping.entity.Cart;
 import com.runner.shopping.entity.Product;
 import com.runner.shopping.entity.ProductImage;
 import com.runner.shopping.entity.ProductVariant;
+import com.runner.shopping.enums.UserRole;
 import com.runner.shopping.exception.InsufficientStockException;
 import com.runner.shopping.exception.ResourceNotFoundException;
 import com.runner.shopping.mapper.CartMapper;
@@ -30,30 +30,29 @@ public class CartServiceImpl implements CartService {
     private final UserRepository userRepository;
     private final CartMapper cartMapper;
 
-//    public CartServiceImpl(CartRepository cartRepository, ProductVariantRepository productVariantRepository,
-//                           ProductRepository productRepository, ProductImageRepository productImageRepository,
-//                           UserRepository userRepository, CartMapper cartMapper) {
-//        this.cartRepository = cartRepository;
-//        this.productVariantRepository = productVariantRepository;
-//        this.productRepository = productRepository;
-//        this.productImageRepository = productImageRepository;
-//        this.userRepository = userRepository;
-//        this.cartMapper = cartMapper;
-//    }
-
     @Override
     @Transactional
     public CartDTO addToCart(CartDTO cartDTO) {
         // Kiểm tra userId
         validateUser(cartDTO.getUserId());
 
-        // Kiểm tra variant
+        // Kiểm tra variant và lock bản ghi
         ProductVariant variant = productVariantRepository.findByIdNotDeleted(cartDTO.getVariantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product variant not found with id: " + cartDTO.getVariantId()));
+
+        // Kiểm tra sản phẩm active
+        Product product = productRepository.findByIdNotDeleted(variant.getProductId())
+                .filter(Product::isActive)
+                .orElseThrow(() -> new ResourceNotFoundException("Product is inactive or not found with id: " + variant.getProductId()));
 
         // Kiểm tra tồn kho
         if (variant.getStock() < cartDTO.getQuantity()) {
             throw new InsufficientStockException("Not enough stock for variant: " + cartDTO.getVariantId());
+        }
+
+        // Kiểm tra giới hạn số lượng tối đa
+        if (cartDTO.getQuantity() > 100) {
+            throw new IllegalArgumentException("Quantity cannot exceed 100 per variant");
         }
 
         // Lấy giá
@@ -66,6 +65,9 @@ public class CartServiceImpl implements CartService {
                     int newQuantity = cart.getQuantity() + cartDTO.getQuantity();
                     if (variant.getStock() < newQuantity) {
                         throw new InsufficientStockException("Not enough stock for variant: " + cartDTO.getVariantId());
+                    }
+                    if (newQuantity > 100) {
+                        throw new IllegalArgumentException("Total quantity cannot exceed 100 per variant");
                     }
                     cart.setQuantity(newQuantity);
                     cart.setPriceAtTime(price);
@@ -88,11 +90,21 @@ public class CartServiceImpl implements CartService {
         // Kiểm tra userId
         validateUser(cart.getUserId());
 
+        // Kiểm tra variant và lock bản ghi
         ProductVariant variant = productVariantRepository.findByIdNotDeleted(cart.getVariantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product variant not found with id: " + cart.getVariantId()));
 
+        // Kiểm tra sản phẩm active
+        Product product = productRepository.findByIdNotDeleted(variant.getProductId())
+                .filter(Product::isActive)  //@Data với getter được tạo với tên là isActive()
+                .orElseThrow(() -> new ResourceNotFoundException("Product is inactive or not found with id: " + variant.getProductId()));
+
         if (quantity > variant.getStock()) {
             throw new InsufficientStockException("Not enough stock for variant: " + cart.getVariantId());
+        }
+
+        if (quantity > 100) {
+            throw new IllegalArgumentException("Quantity cannot exceed 100 per variant");
         }
 
         if (quantity <= 0) {
@@ -136,10 +148,12 @@ public class CartServiceImpl implements CartService {
 
     private CartDTO enrichCartDTO(CartDTO cartDTO, ProductVariant variant) {
         Product product = productRepository.findByIdNotDeleted(variant.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + variant.getProductId()));
+                .filter(Product::isActive)
+                .orElseThrow(() -> new ResourceNotFoundException("Product is inactive or not found with id: " + variant.getProductId()));
         cartDTO.setProductName(product.getName());
         cartDTO.setSize(variant.getSize());
         cartDTO.setColor(variant.getColor());
+        cartDTO.setStock(variant.getStock());
 
         productImageRepository.findByProductIdNotDeleted(variant.getProductId()).stream()
                 .filter(ProductImage::isPrimary)
@@ -153,7 +167,7 @@ public class CartServiceImpl implements CartService {
 
     private void validateUser(Long userId) {
         userRepository.findById(userId)
-//                .filter(user -> user.getRole() == UserRole.CUSTOMER)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+                .filter(user -> user.getRole() == UserRole.CUSTOMER)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found or not a customer with id: " + userId));
     }
 }
