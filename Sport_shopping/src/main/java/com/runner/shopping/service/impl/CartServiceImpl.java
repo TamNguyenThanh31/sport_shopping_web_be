@@ -131,6 +131,7 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
+    @Transactional
     public List<CartDTO> getCartByUserId(Long userId) {
         // Kiểm tra userId
         validateUser(userId);
