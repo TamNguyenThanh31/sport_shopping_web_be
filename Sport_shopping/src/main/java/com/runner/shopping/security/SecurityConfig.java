@@ -42,7 +42,7 @@ public class SecurityConfig {
                         // Customer endpoints
                         .requestMatchers(HttpMethod.POST,
                                 "/api/orders",
-                                "/api/orders/**/cancel",
+//                                "/api/orders/**/cancel",
                                 "/api/addresses").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.GET,
                                 "/api/orders",
@@ -51,6 +51,8 @@ public class SecurityConfig {
                                 "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.PATCH,
+                                "/api/addresses/*/set-default").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.POST,
