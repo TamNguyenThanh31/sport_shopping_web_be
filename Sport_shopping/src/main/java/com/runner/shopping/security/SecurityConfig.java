@@ -77,6 +77,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/promotions",
                                 "/api/promotions/**").hasAuthority("ROLE_STAFF")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/promotions/**").hasAuthority("ROLE_STAFF")
                         // Staff và Admin endpoints
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/orders/**/status").hasAnyAuthority("ROLE_STAFF", "ROLE_ADMIN")

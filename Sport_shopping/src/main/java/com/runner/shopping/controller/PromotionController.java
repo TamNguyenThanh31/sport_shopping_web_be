@@ -4,10 +4,14 @@ import com.runner.shopping.model.dto.PromotionDTO;
 import com.runner.shopping.service.PromotionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -45,6 +49,18 @@ public class PromotionController {
     @GetMapping
     public ResponseEntity<List<PromotionDTO>> getAllPromotions() {
         List<PromotionDTO> promotions = promotionService.getAllPromotions();
+        return ResponseEntity.ok(promotions);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<Page<PromotionDTO>> getPromotions(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) Boolean isActive,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo,
+            Pageable pageable) {
+        Page<PromotionDTO> promotions = promotionService.getPromotions(
+                code, isActive, dateFrom, dateTo, pageable);
         return ResponseEntity.ok(promotions);
     }
 }
