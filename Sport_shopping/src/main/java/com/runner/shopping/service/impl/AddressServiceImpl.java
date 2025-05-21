@@ -96,6 +96,25 @@ public class AddressServiceImpl implements AddressService {
         return addressMapper.toDTOList(addresses);
     }
 
+    @Override
+    @Transactional
+    public AddressDTO setDefaultAddress(Long userId, Long addressId) {
+        validateUser(userId);
+        Addresses address = addressRepository.findByIdAndUserId(addressId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Address not found with id: " + addressId + " for user: " + userId));
+        // Unset any existing default address for the user
+        addressRepository.findAll().stream()
+                .filter(a -> a.getUserId().equals(userId) && a.getIsDefault() && !a.getId().equals(addressId))
+                .forEach(a -> {
+                    a.setIsDefault(false);
+                    addressRepository.save(a);
+                });
+        // Set the specified address as default
+        address.setIsDefault(true);
+        Addresses updatedAddress = addressRepository.save(address);
+        return addressMapper.toDTO(updatedAddress);
+    }
+
     private void validateUser(Long userId) {
         userRepository.findById(userId)
                 .filter(user -> user.getRole() == UserRole.CUSTOMER)

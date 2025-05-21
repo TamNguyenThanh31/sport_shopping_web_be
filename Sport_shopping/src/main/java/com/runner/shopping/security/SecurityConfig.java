@@ -42,6 +42,7 @@ public class SecurityConfig {
                         // Customer endpoints
                         .requestMatchers(HttpMethod.POST,
                                 "/api/orders",
+//                                "/api/orders/**/cancel",
                                 "/api/addresses").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.GET,
                                 "/api/orders",
@@ -50,6 +51,8 @@ public class SecurityConfig {
                                 "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.PATCH,
+                                "/api/addresses/*/set-default").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/addresses/**").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.POST,
@@ -75,6 +78,8 @@ public class SecurityConfig {
                                 "/api/promotions",
                                 "/api/promotions/**").hasAuthority("ROLE_STAFF")
                         // Staff và Admin endpoints
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/orders/**/status").hasAnyAuthority("ROLE_STAFF", "ROLE_ADMIN")
                         .requestMatchers(HttpMethod.POST,
                                 "/api/products",
                                 "/api/categories").hasAnyAuthority("ROLE_ADMIN", "ROLE_STAFF")

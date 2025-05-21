@@ -47,4 +47,10 @@ public class AddressController {
         List<AddressDTO> addresses = addressService.getAddressesByUserId(userId);
         return ResponseEntity.ok(addresses);
     }
+
+    @PatchMapping("/{addressId}/set-default")
+    public ResponseEntity<AddressDTO> setDefaultAddress(@RequestParam Long userId, @PathVariable Long addressId) {
+        AddressDTO updatedAddress = addressService.setDefaultAddress(userId, addressId);
+        return ResponseEntity.ok(updatedAddress);
+    }
 }

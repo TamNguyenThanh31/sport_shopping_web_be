@@ -15,4 +15,6 @@ public interface AddressService {
     AddressDTO getAddressById(Long userId, Long addressId);
 
     List<AddressDTO> getAddressesByUserId(Long userId);
+
+    AddressDTO setDefaultAddress(Long userId, Long addressId);
 }

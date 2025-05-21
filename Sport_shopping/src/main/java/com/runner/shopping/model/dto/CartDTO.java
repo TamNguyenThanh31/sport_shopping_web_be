@@ -1,5 +1,6 @@
 package com.runner.shopping.model.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +20,9 @@ public class CartDTO {
 
     @Min(value = 1, message = "Quantity must be at least 1")
     private Integer quantity;
+
+    @Schema(description = "Available stock for the variant")
+    private Integer stock;
 
     private BigDecimal priceAtTime;
     private String productName;
