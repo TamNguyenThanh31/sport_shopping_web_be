@@ -301,7 +301,7 @@ public class OrderServiceImpl implements OrderService {
         try {
             String vnp_Version = "2.1.0";
             String vnp_Command = "pay";
-            String vnp_TxnRef = String.valueOf(order.getId());
+            String vnp_TxnRef = order.getId() + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
             String vnp_Amount = String.valueOf(payment.getAmount().multiply(new BigDecimal(100)).longValueExact());
             String vnp_CurrCode = "VND";
             String vnp_IpAddr = getClientIp();
@@ -329,6 +329,7 @@ public class OrderServiceImpl implements OrderService {
 
             String vnp_SecureHash = VnPayUtil.hashAllFields(vnp_Params);
             vnp_Params.put("vnp_SecureHash", vnp_SecureHash);
+            log.info("Generated VNPay Payment URL: {}", vnp_SecureHash);
 
             StringBuilder query = new StringBuilder();
             vnp_Params.forEach((key, value) -> {

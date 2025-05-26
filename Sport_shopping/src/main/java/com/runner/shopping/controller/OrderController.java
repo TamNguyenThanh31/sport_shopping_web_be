@@ -94,13 +94,4 @@ public class OrderController {
         log.info("Generated VNPay URL for order ID: {}", id);
         return ResponseEntity.ok(Map.of("paymentUrl", vnpayUrl));
     }
-
-    @GetMapping("/vnpay/return")
-    @Operation(summary = "Handle VNPay callback", description = "Processes VNPay payment callback and redirects to result page")
-    public ResponseEntity<String> handleVNPayReturn(HttpServletRequest request) {
-        log.info("Handling VNPay callback for request: {}", request.getQueryString());
-        String redirectUrl = vnPayService.handleVnpayReturn(request);
-        log.info("Redirecting to: {}", redirectUrl);
-        return ResponseEntity.status(302).header("Location", redirectUrl).body("Redirecting...");
-    }
 }

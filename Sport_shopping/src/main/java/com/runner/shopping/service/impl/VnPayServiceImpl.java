@@ -60,20 +60,34 @@ public class VnPayServiceImpl implements VnPayService {
         fields.remove("vnp_SecureHash");
 
         String orderIdStr = fields.get("vnp_TxnRef");
-        Payments payment = paymentRepository.findByOrderId(Long.parseLong(orderIdStr)).orElse(null);
-        if (payment == null) {
-            log.warn("Payment not found for orderId={}", orderIdStr);
-            return "redirect:/payment-result?status=failed&message=Payment+not+found";
+        if (orderIdStr == null || orderIdStr.isEmpty()) {
+            log.warn("vnp_TxnRef is missing in callback parameters");
+            return "redirect:/payment-result?status=failed&message=Missing+transaction+reference";
         }
 
-        // Không thay vnp_IpAddr bằng storedIpAddr
-        // String storedIpAddr = payment.getClientIp();
-        // if (storedIpAddr != null) {
-        //     log.info("Using stored clientIp for vnp_IpAddr: {}", storedIpAddr);
-        //     fields.put("vnp_IpAddr", storedIpAddr);
-        // } else {
-        //     log.warn("clientIp not found in Payments for orderId={}", orderIdStr);
-        // }
+        // Tách orderId từ vnp_TxnRef (dạng <orderId>_<timestamp>)
+        String orderId;
+        try {
+            orderId = orderIdStr.split("_")[0]; // Lấy phần orderId trước dấu _
+        } catch (Exception e) {
+            log.error("Invalid vnp_TxnRef format: {}", orderIdStr);
+            return "redirect:/payment-result?status=failed&message=Invalid+transaction+reference+format";
+        }
+
+        // Chuyển orderId thành Long
+        Long orderIdLong;
+        try {
+            orderIdLong = Long.parseLong(orderId);
+        } catch (NumberFormatException e) {
+            log.error("Invalid orderId in vnp_TxnRef: {}", orderId);
+            return "redirect:/payment-result?status=failed&message=Invalid+order+id";
+        }
+
+        Payments payment = paymentRepository.findByOrderId(orderIdLong).orElse(null);
+        if (payment == null) {
+            log.warn("Payment not found for orderId={}", orderIdLong);
+            return "redirect:/payment-result?status=failed&message=Payment+not+found";
+        }
 
         String signValue = VnPayUtil.hashAllFields(fields);
         log.info("Calculated signValue: {}, Received secureHash: {}", signValue, secureHash);
@@ -85,28 +99,30 @@ public class VnPayServiceImpl implements VnPayService {
         String transactionStatus = fields.get("vnp_TransactionStatus");
         String responseCode = fields.get("vnp_ResponseCode");
 
-        Orders order = orderRepository.findById(Long.parseLong(orderIdStr)).orElse(null);
+        Orders order = orderRepository.findById(orderIdLong).orElse(null);
         if (order == null) {
-            log.warn("Order not found for vnp_TxnRef={}", orderIdStr);
+            log.warn("Order not found for orderId={}", orderIdLong);
             return "redirect:/payment-result?status=failed&message=Order+not+found";
         }
 
         if (!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.CONFIRMED)) {
-            log.warn("Order already processed: orderId={}, status={}", orderIdStr, order.getStatus());
+            log.warn("Order already processed: orderId={}, status={}", orderIdLong, order.getStatus());
             return "redirect:/payment-result?status=failed&message=Order+already+processed";
         }
 
         boolean isSuccess = "00".equals(transactionStatus) && "00".equals(responseCode);
         if (isSuccess) {
             order.setStatus(OrderStatus.CONFIRMED);
+            order.setPaymentStatus(PaymentStatus.COMPLETED);
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setTransactionId(fields.get("vnp_TransactionNo"));
-            log.info("Payment successful for orderId={}", orderIdStr);
+            log.info("Payment successful for orderId={}", orderIdLong);
         } else {
             order.setStatus(OrderStatus.CANCELLED);
+            order.setPaymentStatus(PaymentStatus.FAILED);
             payment.setStatus(PaymentStatus.FAILED);
             log.info("Payment failed for orderId={}, responseCode={}, transactionStatus={}",
-                    orderIdStr, responseCode, transactionStatus);
+                    orderIdLong, responseCode, transactionStatus);
             revertStockForOrder(order);
         }
         orderRepository.save(order);
