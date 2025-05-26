@@ -8,4 +8,6 @@ public interface PromotionUsageRepository extends JpaRepository<PromotionUsage, 
     boolean existsByPromotionIdAndUserId(Long promotionId, Long userId);
 
     long countByPromotionId(Long promotionId);
+
+    void deleteByOrderId(Long orderId);
 }

@@ -38,6 +38,9 @@ public class Payments {
     @Column(name = "transaction_id")
     private String transactionId;
 
+    @Column(name = "client_ip")
+    private String clientIp;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }

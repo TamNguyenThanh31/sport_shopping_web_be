@@ -22,4 +22,6 @@ public interface OrderService {
     void cancelOrder(Long orderId, Long userId);
 
     Page<OrderDTO> getAllOrders(Long staffId, OrderStatus status, Long userId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
+
+    String initiateVNPayPayment(Long orderId, Long userId, String returnUrl);
 }
