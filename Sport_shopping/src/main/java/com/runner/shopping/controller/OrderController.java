@@ -3,8 +3,10 @@ package com.runner.shopping.controller;
 import com.runner.shopping.enums.OrderStatus;
 import com.runner.shopping.model.dto.OrderDTO;
 import com.runner.shopping.service.OrderService;
+import com.runner.shopping.service.VnPayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -25,6 +28,7 @@ import java.util.List;
 public class OrderController {
 
     private final OrderService orderService;
+    private final VnPayService vnPayService;
 
     @PostMapping
     public ResponseEntity<OrderDTO> createOrder(@Valid @RequestBody OrderDTO orderDTO) {
@@ -77,5 +81,17 @@ public class OrderController {
         Pageable pageable = PageRequest.of(page, size);
         Page<OrderDTO> orders = orderService.getAllOrders(staffId, status, userId, startDate, endDate, pageable);
         return ResponseEntity.ok(orders);
+    }
+
+    @PostMapping("/{id}/vnpay")
+    @Operation(summary = "Initiate VNPay payment", description = "Generates a VNPay payment URL for an order")
+    public ResponseEntity<Map<String, String>> initiateVNPayPayment(
+            @Parameter(description = "Order ID") @PathVariable Long id,
+            @Parameter(description = "User ID") @RequestParam Long userId,
+            @Parameter(description = "Return URL for VNPay callback") @RequestParam String returnUrl) {
+        log.info("Initiating VNPay payment for order ID: {} by userId: {}", id, userId);
+        String vnpayUrl = orderService.initiateVNPayPayment(id, userId, returnUrl);
+        log.info("Generated VNPay URL for order ID: {}", id);
+        return ResponseEntity.ok(Map.of("paymentUrl", vnpayUrl));
     }
 }

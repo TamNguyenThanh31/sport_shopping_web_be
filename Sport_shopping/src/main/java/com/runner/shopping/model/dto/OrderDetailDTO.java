@@ -32,6 +32,6 @@ public class OrderDetailDTO {
     @Schema(description = "Variant color")
     private String color;
 
-    @Schema(description = "Product image URL")
+    @Schema(description = "URL of the primary product image")
     private String imageUrl;
 }

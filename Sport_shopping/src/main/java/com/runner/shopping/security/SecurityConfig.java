@@ -33,7 +33,8 @@ public class SecurityConfig {
                                 "/api/products",
                                 "/api/products/**",
                                 "/api/categories",
-                                "/api/categories/**").permitAll()
+                                "/api/categories/**",
+                                "/api/vnpay/return").permitAll()
                         .requestMatchers(
                                 "/api/users/register",
                                 "/api/users/login",
@@ -42,7 +43,9 @@ public class SecurityConfig {
                         // Customer endpoints
                         .requestMatchers(HttpMethod.POST,
                                 "/api/orders",
-//                                "/api/orders/**/cancel",
+                                "/api/orders/*/cancel",
+                                "/api/orders/*/vnpay",
+                                "/api/orders/vnpay/return",
                                 "/api/addresses").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.GET,
                                 "/api/orders",
