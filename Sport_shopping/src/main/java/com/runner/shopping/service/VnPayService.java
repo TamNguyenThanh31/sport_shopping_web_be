@@ -1,7 +1,8 @@
 package com.runner.shopping.service;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
 
 public interface VnPayService {
-    String handleVnpayReturn(HttpServletRequest request);
+    ResponseEntity<Void> handleVnpayReturn(HttpServletRequest request);
 }

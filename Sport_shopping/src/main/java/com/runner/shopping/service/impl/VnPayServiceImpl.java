@@ -9,6 +9,8 @@ import com.runner.shopping.util.VnPayUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +34,7 @@ public class VnPayServiceImpl implements VnPayService {
 
     @Override
     @Transactional
-    public String handleVnpayReturn(HttpServletRequest request) {
+    public ResponseEntity<Void> handleVnpayReturn(HttpServletRequest request) {
         Map<String, String> fields = new HashMap<>();
         Enumeration<String> paramNames = request.getParameterNames();
         while (paramNames.hasMoreElements()) {
@@ -44,7 +46,9 @@ public class VnPayServiceImpl implements VnPayService {
                 fields.put(decodedName, decodedValue);
             } catch (Exception e) {
                 log.error("Error decoding VNPay parameter: name={}, value={}, error={}", name, value, e.getMessage());
-                throw new RuntimeException("Error decoding VNPay parameters", e);
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:4200/payment-result?status=failed&message=Error+decoding+parameters")
+                        .build();
             }
         }
 
@@ -53,7 +57,9 @@ public class VnPayServiceImpl implements VnPayService {
         String secureHash = fields.get("vnp_SecureHash");
         if (secureHash == null) {
             log.warn("vnp_SecureHash is missing in callback parameters");
-            return "redirect:/payment-result?status=failed&message=Missing+secure+hash";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Missing+secure+hash")
+                    .build();
         }
 
         fields.remove("vnp_SecureHashType");
@@ -62,16 +68,20 @@ public class VnPayServiceImpl implements VnPayService {
         String orderIdStr = fields.get("vnp_TxnRef");
         if (orderIdStr == null || orderIdStr.isEmpty()) {
             log.warn("vnp_TxnRef is missing in callback parameters");
-            return "redirect:/payment-result?status=failed&message=Missing+transaction+reference";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Missing+transaction+reference")
+                    .build();
         }
 
         // Tách orderId từ vnp_TxnRef (dạng <orderId>_<timestamp>)
         String orderId;
         try {
-            orderId = orderIdStr.split("_")[0]; // Lấy phần orderId trước dấu _
+            orderId = orderIdStr.split("_")[0];
         } catch (Exception e) {
             log.error("Invalid vnp_TxnRef format: {}", orderIdStr);
-            return "redirect:/payment-result?status=failed&message=Invalid+transaction+reference+format";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Invalid+transaction+reference+format")
+                    .build();
         }
 
         // Chuyển orderId thành Long
@@ -80,20 +90,26 @@ public class VnPayServiceImpl implements VnPayService {
             orderIdLong = Long.parseLong(orderId);
         } catch (NumberFormatException e) {
             log.error("Invalid orderId in vnp_TxnRef: {}", orderId);
-            return "redirect:/payment-result?status=failed&message=Invalid+order+id";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Invalid+order+id")
+                    .build();
         }
 
         Payments payment = paymentRepository.findByOrderId(orderIdLong).orElse(null);
         if (payment == null) {
             log.warn("Payment not found for orderId={}", orderIdLong);
-            return "redirect:/payment-result?status=failed&message=Payment+not+found";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Payment+not+found")
+                    .build();
         }
 
         String signValue = VnPayUtil.hashAllFields(fields);
         log.info("Calculated signValue: {}, Received secureHash: {}", signValue, secureHash);
         if (!secureHash.equals(signValue)) {
             log.warn("Invalid VNPay signature: expected={}, actual={}", signValue, secureHash);
-            return "redirect:/payment-result?status=failed&message=Invalid+signature";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Invalid+signature")
+                    .build();
         }
 
         String transactionStatus = fields.get("vnp_TransactionStatus");
@@ -102,12 +118,16 @@ public class VnPayServiceImpl implements VnPayService {
         Orders order = orderRepository.findById(orderIdLong).orElse(null);
         if (order == null) {
             log.warn("Order not found for orderId={}", orderIdLong);
-            return "redirect:/payment-result?status=failed&message=Order+not+found";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Order+not+found")
+                    .build();
         }
 
         if (!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.CONFIRMED)) {
             log.warn("Order already processed: orderId={}, status={}", orderIdLong, order.getStatus());
-            return "redirect:/payment-result?status=failed&message=Order+already+processed";
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:4200/payment-result?status=failed&message=Order+already+processed")
+                    .build();
         }
 
         boolean isSuccess = "00".equals(transactionStatus) && "00".equals(responseCode);
@@ -128,10 +148,13 @@ public class VnPayServiceImpl implements VnPayService {
         orderRepository.save(order);
         paymentRepository.save(payment);
 
-        return "redirect:/payment-result?status=" + (isSuccess ? "success" : "failed");
+        // Redirect đến URL frontend
+        String redirectUrl = "http://localhost:4200/payment-result?status=" + (isSuccess ? "success" : "failed") + "&orderId=" + orderId;
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Location", redirectUrl)
+                .build();
     }
 
-    // Thêm phương thức để hoàn stock
     private void revertStockForOrder(Orders order) {
         List<OrderDetails> details = orderDetailRepository.findByOrderId(order.getId());
         for (OrderDetails detail : details) {
@@ -144,7 +167,7 @@ public class VnPayServiceImpl implements VnPayService {
                 log.setVariantId(detail.getVariantId());
                 log.setQuantityChange(detail.getQuantity());
                 log.setReason("Hủy đơn hàng do thanh toán thất bại, ID: " + order.getId());
-                log.setCreatedBy(null); // Có thể set userId nếu có
+                log.setCreatedBy(null);
                 inventoryLogRepository.save(log);
             }
         }
