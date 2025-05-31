@@ -139,12 +139,12 @@ public class OrderServiceImpl implements OrderService {
         Payments payment = new Payments();
         payment.setOrderId(savedOrder.getId());
         payment.setAmount(totalPrice);
-        payment.setPaymentMethod(orderDTO.getPaymentMethod()); // Đã sửa: Lấy paymentMethod từ orderDTO
+        payment.setPaymentMethod(orderDTO.getPaymentMethod());
         payment.setStatus(PaymentStatus.PENDING);
         paymentRepository.save(payment);
         cartRepository.deleteByUserId(orderDTO.getUserId());
         OrderDTO result = orderMapper.toDTO(finalOrder);
-        result.setPaymentMethod(orderDTO.getPaymentMethod()); // Thêm: Gán paymentMethod vào DTO
+        result.setPaymentMethod(orderDTO.getPaymentMethod());
         result.setOrderDetails(enrichOrderDetails(orderDetailRepository.findByOrderId(savedOrder.getId())));
         result.setAddressDetails(addressRepository.findById(finalOrder.getAddressId())
                 .map(addressMapper::toDTO).orElse(null));
