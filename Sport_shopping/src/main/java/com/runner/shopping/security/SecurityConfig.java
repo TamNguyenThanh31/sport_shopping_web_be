@@ -109,7 +109,7 @@ public class SecurityConfig {
                                 "/api/promotions",
                                 "/api/promotions/**",
                                 "/api/sessions/available"
-                        ).hasAuthority("ROLE_STAFF")
+                        ).hasAnyAuthority("ROLE_STAFF", "ROLE_CUSTOMER")
 
                         // ================================
                         // 4. “sessions/active” có thể là Customer hoặc Staff
