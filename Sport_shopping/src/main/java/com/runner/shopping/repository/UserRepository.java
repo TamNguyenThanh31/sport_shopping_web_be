@@ -27,4 +27,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Phân trang cho tất cả người dùng
     Page<User> findAll(Pageable pageable);
+
+    List<User> findByRoleAndOnlineStatusTrue(UserRole role);
 }
