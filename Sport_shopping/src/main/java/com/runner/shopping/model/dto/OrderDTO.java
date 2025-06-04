@@ -4,7 +4,6 @@ import com.runner.shopping.enums.OrderStatus;
 import com.runner.shopping.enums.PaymentMethod;
 import com.runner.shopping.enums.PaymentStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -22,8 +21,14 @@ public class OrderDTO {
     @NotNull(message = "User ID is required")
     private Long userId;
 
-    @Schema(description = "Total price of the order")
+    @Schema(description = "Total price of the order (sau khi trừ khuyến mãi)")
     private BigDecimal totalPrice;
+
+    @Schema(description = "Total cost (giá vốn) của order")
+    private BigDecimal totalCost;
+
+    @Schema(description = "Total profit (lợi nhuận) của order")
+    private BigDecimal totalProfit;
 
     @Schema(description = "Order status")
     private OrderStatus status;
@@ -53,6 +58,9 @@ public class OrderDTO {
 
     @Schema(description = "Order creation timestamp")
     private LocalDateTime createdAt;
+
+    @Schema(description = "Order canceled timestamp (nếu có)")
+    private LocalDateTime canceledAt;
 
     @Schema(description = "List of order details, populated in response (not required in request)")
     private List<OrderDetailDTO> orderDetails;

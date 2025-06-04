@@ -20,6 +20,9 @@ public class OrderDetailDTO {
     @Min(value = 1, message = "Quantity must be at least 1")
     private Integer quantity;
 
+    @Schema(description = "Cost price of the variant at the time of order")
+    private BigDecimal costAtTime;
+
     @Schema(description = "Price of the variant at the time of order")
     private BigDecimal priceAtTime;
 

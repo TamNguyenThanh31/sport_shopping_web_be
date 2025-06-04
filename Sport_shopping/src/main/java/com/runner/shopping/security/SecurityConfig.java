@@ -63,7 +63,6 @@ public class SecurityConfig {
                                 "/api/orders/**",
                                 "/api/addresses",
                                 "/api/addresses/**"
-                                // (lưu ý: /api/sessions/active sẽ để chung với STAFF, không để ở đây)
                         ).hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/addresses/**"

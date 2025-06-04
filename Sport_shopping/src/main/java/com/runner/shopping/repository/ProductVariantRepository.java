@@ -1,6 +1,8 @@
 package com.runner.shopping.repository;
 
 import com.runner.shopping.entity.ProductVariant;
+import com.runner.shopping.model.dto.ProductVariantDTO;
+import com.runner.shopping.model.dto.ProductVariantInfoDTO;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -29,4 +31,29 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     @Query("SELECT pv FROM ProductVariant pv WHERE pv.id = :id AND pv.deleted = 0")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ProductVariant> findByIdNotDeletedWithLock(@Param("id") Long id);
+
+    // Tổng tồn kho (chưa xoá) theo productId
+    @Query("""
+      SELECT 
+        p.name, 
+        SUM(pv.stock)
+      FROM ProductVariant pv
+      JOIN Product p 
+        ON p.id = pv.productId
+      WHERE pv.deleted = 0
+      GROUP BY p.name
+      """)
+    List<Object[]> sumStockGroupedByName();
+
+    @Query("""
+      SELECT 
+        p.name,        
+        pv.sku,
+        pv.stock       
+      FROM ProductVariant pv
+      JOIN Product p 
+        ON p.id = pv.productId
+      WHERE pv.deleted = 0
+      """)
+    List<Object[]> fetchActiveVariantsWithProductName();
 }

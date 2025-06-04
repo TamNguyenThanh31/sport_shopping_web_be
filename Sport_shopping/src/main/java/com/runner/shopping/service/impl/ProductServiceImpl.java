@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -43,12 +44,12 @@ public class ProductServiceImpl implements ProductService {
         validateUser(productDTO.getAddedById());
         validateImageInputs(imageFiles, isPrimaryFlags);
 
-        // Lưu sản phẩm
+        // Lưu sản phẩm chính
         Product product = productMapper.toEntity(productDTO);
         product = productRepository.save(product);
         log.info("Đã tạo sản phẩm với ID: {}", product.getId());
 
-        // Lưu biến thể
+        // Lưu biến thể (bao gồm costPrice)
         saveVariants(product.getId(), productDTO.getVariants());
 
         // Lưu hình ảnh
@@ -79,9 +80,12 @@ public class ProductServiceImpl implements ProductService {
 
         // Cập nhật biến thể (xóa mềm cũ, lưu mới)
         if (productDTO.getVariants() != null) {
+            // 1. Đánh dấu deleted = 1 cho các biến thể cũ
             List<ProductVariant> existingVariants = productVariantRepository.findByProductId(id);
             existingVariants.forEach(variant -> variant.setDeleted(1));
             productVariantRepository.saveAll(existingVariants);
+
+            // 2. Lưu các biến thể mới (bao gồm costPrice)
             saveVariants(id, productDTO.getVariants());
             log.info("Đã cập nhật biến thể cho sản phẩm ID: {}", id);
         }
@@ -99,6 +103,7 @@ public class ProductServiceImpl implements ProductService {
                 }
             });
             productImageRepository.saveAll(existingImages);
+
             validateImageInputs(imageFiles, isPrimaryFlags);
             saveImages(id, imageFiles, isPrimaryFlags);
             log.info("Đã cập nhật hình ảnh cho sản phẩm ID: {}", id);
@@ -218,19 +223,40 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
+    /**
+     * Lưu danh sách biến thể cho sản phẩm, bao gồm cả trường costPrice.
+     * Nếu DTO không có costPrice (null), sẽ gán mặc định là BigDecimal.ZERO.
+     */
     private void saveVariants(Long productId, List<ProductVariantDTO> variantDTOs) {
         if (variantDTOs == null || variantDTOs.isEmpty()) {
             log.warn("Không có biến thể nào được cung cấp cho sản phẩm {}", productId);
             return;
         }
         log.info("Lưu {} biến thể cho sản phẩm {}", variantDTOs.size(), productId);
+
         List<ProductVariant> variants = variantDTOs.stream()
-                .map(productMapper::toEntity)
-                .peek(v -> v.setProductId(productId))
+                .map(dto -> {
+                    // Ánh xạ cơ bản từ DTO sang Entity
+                    ProductVariant v = productMapper.toEntity(dto);
+                    // Gán ID sản phẩm (nếu Entity dùng Long productId thay vì quan hệ)
+                    v.setProductId(productId);
+                    // Gán costPrice (giá nhập), nếu dto trả về null thì gán BigDecimal.ZERO
+                    BigDecimal cp = dto.getCostPrice() != null ? dto.getCostPrice() : BigDecimal.ZERO;
+                    v.setCostPrice(cp);
+                    // Gán createdAt/updatedAt mặc định
+                    v.setCreatedAt(LocalDateTime.now());
+                    v.setUpdatedAt(LocalDateTime.now());
+                    // Nếu muốn kiểm tra stock/price hợp lệ thì validate trước khi save
+                    return v;
+                })
                 .collect(Collectors.toList());
+
         productVariantRepository.saveAll(variants);
     }
 
+    /**
+     * Lưu hình ảnh cho sản phẩm
+     */
     private void saveImages(Long productId, List<MultipartFile> imageFiles, List<Boolean> isPrimaryFlags) {
         if (imageFiles == null || imageFiles.isEmpty()) {
             log.warn("Không có hình ảnh nào được cung cấp cho sản phẩm {}", productId);
@@ -267,6 +293,7 @@ public class ProductServiceImpl implements ProductService {
 
     private ProductDTO mapToProductDTO(Product product) {
         ProductDTO dto = productMapper.toDTO(product);
+        // Lấy danh sách biến thể chưa xoá mềm, mapper sẽ chuyển sang ProductVariantDTO (có costPrice)
         dto.setVariants(productMapper.toVariantDTOList(
                 productVariantRepository.findByProductIdNotDeleted(product.getId())
         ));
