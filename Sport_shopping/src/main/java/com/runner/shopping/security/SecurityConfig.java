@@ -63,7 +63,6 @@ public class SecurityConfig {
                                 "/api/orders/**",
                                 "/api/addresses",
                                 "/api/addresses/**"
-                                // (lưu ý: /api/sessions/active sẽ để chung với STAFF, không để ở đây)
                         ).hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/addresses/**"
@@ -109,7 +108,7 @@ public class SecurityConfig {
                                 "/api/promotions",
                                 "/api/promotions/**",
                                 "/api/sessions/available"
-                        ).hasAuthority("ROLE_STAFF")
+                        ).hasAnyAuthority("ROLE_STAFF", "ROLE_CUSTOMER")
 
                         // ================================
                         // 4. “sessions/active” có thể là Customer hoặc Staff

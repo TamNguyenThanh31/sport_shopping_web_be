@@ -26,6 +26,11 @@ public class OrderDetails {
     @Column(nullable = false)
     private Integer quantity;
 
+    // Giá vốn (cost) tại thời điểm đặt; phải gán trong service
+    @Column(name = "cost_at_time", nullable = false)
+    private BigDecimal costAtTime;
+
+    // Giá bán tại thời điểm; gán trong service
     @Column(name = "price_at_time", nullable = false)
     private BigDecimal priceAtTime;
 

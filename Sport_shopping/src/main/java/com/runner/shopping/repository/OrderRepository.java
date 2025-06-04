@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -34,4 +35,20 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             Pageable pageable);
+
+    // Đếm tổng đơn hôm nay (không phân biệt status)
+    @Query("SELECT COUNT(o) FROM Orders o WHERE o.createdAt >= :startOfDay")
+    Long countOrdersSince(@Param("startOfDay") LocalDateTime startOfDay);
+
+    // Tính tổng doanh thu hôm nay (tổng totalPrice), chỉ tính những đơn đã CONFIRMED hoặc DELIVERED
+    @Query("SELECT COALESCE(SUM(o.totalPrice),0) FROM Orders o WHERE o.status IN :includeStatuses AND o.createdAt >= :startOfDay")
+    BigDecimal sumRevenueSince(
+            @Param("includeStatuses") List<OrderStatus> includeStatuses,
+            @Param("startOfDay") LocalDateTime startOfDay);
+
+    // Tính tổng lợi nhuận hôm nay
+    @Query("SELECT COALESCE(SUM(o.totalProfit),0) FROM Orders o WHERE o.status IN :includeStatuses AND o.createdAt >= :startOfDay")
+    BigDecimal sumProfitSince(
+            @Param("includeStatuses") List<OrderStatus> includeStatuses,
+            @Param("startOfDay") LocalDateTime startOfDay);
 }

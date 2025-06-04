@@ -24,6 +24,9 @@ public class ProductVariant {
     @Column(nullable = false)
     private int stock;
 
+    @Column(name = "cost_price", nullable = false)
+    private BigDecimal costPrice; // giá nhập (mới) // giá bán hiện tại
+
     @Column(nullable = false)
     private BigDecimal price;
 

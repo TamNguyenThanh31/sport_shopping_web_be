@@ -59,18 +59,25 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO createOrder(OrderDTO orderDTO) {
+        // 1. Validate user và địa chỉ
         validateUser(orderDTO.getUserId());
         Addresses address = addressRepository.findByIdAndUserId(orderDTO.getAddressId(), orderDTO.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ không tìm thấy với id: " + orderDTO.getAddressId() + " cho người dùng: " + orderDTO.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Địa chỉ không tìm thấy với id: " + orderDTO.getAddressId() + " cho người dùng: " + orderDTO.getUserId()));
+
+        // 2. Lấy giỏ hàng của user
         List<Cart> carts = cartRepository.findByUserId(orderDTO.getUserId());
         if (carts.isEmpty()) {
             throw new IllegalArgumentException("Giỏ hàng trống");
         }
+
+        // 3. Xác định khuyến mãi (nếu có) và lấy discountPercentage
         BigDecimal discountPercentage = BigDecimal.ZERO;
         Promotions promotion = null;
         if (orderDTO.getPromotionId() != null) {
             promotion = promotionRepository.findByIdAndIsActiveTrue(orderDTO.getPromotionId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Khuyến mãi không tìm thấy hoặc không hoạt động với id: " + orderDTO.getPromotionId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Khuyến mãi không tìm thấy hoặc không hoạt động với id: " + orderDTO.getPromotionId()));
             LocalDateTime now = LocalDateTime.now();
             if (promotion.getStartDate() != null && now.isBefore(promotion.getStartDate())) {
                 throw new IllegalArgumentException("Khuyến mãi chưa bắt đầu: " + promotion.getCode());
@@ -87,67 +94,121 @@ public class OrderServiceImpl implements OrderService {
             }
             discountPercentage = promotion.getDiscountPercentage();
         }
+
+        // 4. Tạo entity Orders từ DTO (MapStruct), set tạm totalPrice = 0, totalCost = 0, totalProfit = 0
         Orders order = orderMapper.toEntity(orderDTO);
         order.setStatus(OrderStatus.PENDING);
         order.setPaymentStatus(PaymentStatus.PENDING);
+
+        // Khởi tạo totalPrice/totalCost/totalProfit = 0; service sẽ gán lại sau
         order.setTotalPrice(BigDecimal.ZERO);
+        order.setTotalCost(BigDecimal.ZERO);
+        order.setTotalProfit(BigDecimal.ZERO);
+
         Orders savedOrder = orderRepository.save(order);
+
+        // 5. Tạo list<OrderDetails> dựa vào Cart
         List<OrderDetails> orderDetails = carts.stream()
                 .map(cart -> {
+                    // a. Lấy variant với lock để tránh race condition
                     ProductVariant variant = productVariantRepository.findByIdNotDeletedWithLock(cart.getVariantId())
-                            .orElseThrow(() -> new ResourceNotFoundException("Biến thể sản phẩm không tìm thấy với id: " + cart.getVariantId()));
+                            .orElseThrow(() -> new ResourceNotFoundException(
+                                    "Biến thể sản phẩm không tìm thấy với id: " + cart.getVariantId()));
+
+                    // b. Kiểm tra tồn kho
                     if (variant.getStock() < cart.getQuantity()) {
-                        throw new InsufficientStockException("Sản phẩm " + cart.getVariantId() + " không đủ hàng trong kho");
+                        throw new InsufficientStockException(
+                                "Sản phẩm " + cart.getVariantId() + " không đủ hàng trong kho");
                     }
+
+                    // c. Kiểm tra giá tại giỏ có trùng với giá hiện tại chưa
                     if (!cart.getPriceAtTime().equals(variant.getPrice())) {
-                        throw new IllegalStateException("Giá sản phẩm " + cart.getVariantId() + " đã thay đổi. Vui lòng làm mới giỏ hàng.");
+                        throw new IllegalStateException(
+                                "Giá sản phẩm " + cart.getVariantId() + " đã thay đổi. Vui lòng làm mới giỏ hàng.");
                     }
+
+                    // d. Trừ kho
                     variant.setStock(variant.getStock() - cart.getQuantity());
                     productVariantRepository.save(variant);
-                    InventoryLogs log = new InventoryLogs();
-                    log.setVariantId(cart.getVariantId());
-                    log.setQuantityChange(-cart.getQuantity());
-                    log.setReason("Đặt hàng cho đơn hàng ID: " + savedOrder.getId());
-                    log.setCreatedBy(null);
-                    inventoryLogRepository.save(log);
+
+                    // e. Ghi inventory log
+                    InventoryLogs logEntry = new InventoryLogs();
+                    logEntry.setVariantId(cart.getVariantId());
+                    logEntry.setQuantityChange(-cart.getQuantity());
+                    logEntry.setReason("Đặt hàng cho đơn hàng ID: " + savedOrder.getId());
+                    logEntry.setCreatedBy(null); // có thể gán userId nếu muốn
+                    inventoryLogRepository.save(logEntry);
+
+                    // f. Tạo OrderDetails (đã có các trường mới costAtTime & priceAtTime)
                     OrderDetails detail = new OrderDetails();
                     detail.setOrderId(savedOrder.getId());
                     detail.setVariantId(cart.getVariantId());
                     detail.setQuantity(cart.getQuantity());
                     detail.setPriceAtTime(variant.getPrice());
+                    detail.setCostAtTime(variant.getCostPrice()); // gán giá vốn tại thời điểm
+
                     return detail;
                 })
                 .collect(Collectors.toList());
+
+        // 6. Lưu tất cả OrderDetails
         orderDetailRepository.saveAll(orderDetails);
+
+        // 7. Tính subTotal (tổng doanh thu chưa trừ khuyến mãi) và totalCost (tổng giá vốn)
         BigDecimal subTotal = orderDetails.stream()
-                .map(detail -> detail.getPriceAtTime().multiply(BigDecimal.valueOf(detail.getQuantity())))
+                .map(d -> d.getPriceAtTime().multiply(BigDecimal.valueOf(d.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (promotion != null && promotion.getMinimumOrderValue() != null && subTotal.compareTo(promotion.getMinimumOrderValue()) < 0) {
-            throw new IllegalArgumentException("Tổng giá trị đơn hàng không đạt mức tối thiểu để áp dụng khuyến mãi: " + promotion.getCode());
+
+        BigDecimal totalCost = orderDetails.stream()
+                .map(d -> d.getCostAtTime().multiply(BigDecimal.valueOf(d.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 8. Kiểm tra điều kiện minOrderValue (nếu có khuyến mãi)
+        if (promotion != null && promotion.getMinimumOrderValue() != null
+                && subTotal.compareTo(promotion.getMinimumOrderValue()) < 0) {
+            throw new IllegalArgumentException(
+                    "Tổng giá trị đơn hàng không đạt mức tối thiểu để áp dụng khuyến mãi: " + promotion.getCode());
         }
+
+        // 9. Tính discount và totalPrice cuối cùng
         BigDecimal discount = subTotal.multiply(discountPercentage).divide(BigDecimal.valueOf(100));
         BigDecimal totalPrice = subTotal.subtract(discount);
+
+        // 10. Tính tổng lợi nhuận = totalPrice – totalCost
+        BigDecimal totalProfit = totalPrice.subtract(totalCost);
+
+        // 11. Gán vào đối tượng Orders và lưu lại
         savedOrder.setTotalPrice(totalPrice);
+        savedOrder.setTotalCost(totalCost);
+        savedOrder.setTotalProfit(totalProfit);
         Orders finalOrder = orderRepository.save(savedOrder);
+
+        // 12. Ghi PromotionUsage (nếu sử dụng)
         if (promotion != null) {
             PromotionUsage usage = new PromotionUsage();
             usage.setPromotionId(promotion.getId());
             usage.setUserId(orderDTO.getUserId());
-            usage.setOrderId(savedOrder.getId());
+            usage.setOrderId(finalOrder.getId());
             promotionUsageRepository.save(usage);
         }
+
+        // 13. Tạo Payments record với số tiền = totalPrice
         Payments payment = new Payments();
-        payment.setOrderId(savedOrder.getId());
+        payment.setOrderId(finalOrder.getId());
         payment.setAmount(totalPrice);
         payment.setPaymentMethod(orderDTO.getPaymentMethod());
         payment.setStatus(PaymentStatus.PENDING);
         paymentRepository.save(payment);
+
+        // 14. Xóa toàn bộ giỏ hàng (Cart) của user
         cartRepository.deleteByUserId(orderDTO.getUserId());
+
+        // 15. Map lại OrderDTO để trả về client
         OrderDTO result = orderMapper.toDTO(finalOrder);
         result.setPaymentMethod(orderDTO.getPaymentMethod());
-        result.setOrderDetails(enrichOrderDetails(orderDetailRepository.findByOrderId(savedOrder.getId())));
-        result.setAddressDetails(addressRepository.findById(finalOrder.getAddressId())
-                .map(addressMapper::toDTO).orElse(null));
+        result.setOrderDetails(enrichOrderDetails(orderDetailRepository.findByOrderId(finalOrder.getId())));
+        result.setAddressDetails(
+                addressRepository.findById(finalOrder.getAddressId()).map(addressMapper::toDTO).orElse(null));
         if (finalOrder.getPromotionId() != null) {
             promotionRepository.findById(finalOrder.getPromotionId())
                     .ifPresent(p -> result.setPromotionCode(p.getCode()));
@@ -199,18 +260,42 @@ public class OrderServiceImpl implements OrderService {
     public void cancelOrder(Long orderId, Long userId) {
         Orders order = orderRepository.findByIdAndUserId(orderId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tìm thấy với id: " + orderId));
-        if (!order.getStatus().equals(OrderStatus.PENDING) && !order.getStatus().equals(OrderStatus.CONFIRMED)) {
+
+        // Chỉ cho phép hủy khi PENDING hoặc CONFIRMED (chưa ship/delivered)
+        if (!order.getStatus().equals(OrderStatus.PENDING)
+                && !order.getStatus().equals(OrderStatus.CONFIRMED)) {
             throw new IllegalStateException("Chỉ có thể hủy đơn hàng ở trạng thái PENDING hoặc CONFIRMED");
         }
+        // Chỉ cho hủy trong vòng 24 giờ
         if (order.getCreatedAt().isBefore(LocalDateTime.now().minusHours(24))) {
             throw new IllegalStateException("Đơn hàng chỉ có thể hủy trong vòng 24 giờ sau khi tạo");
         }
+
+        // 1. Thay đổi trạng thái order và payment, set canceledAt
         order.setStatus(OrderStatus.CANCELLED);
-        order.setPaymentStatus(PaymentStatus.CANCELLED);
-        orderRepository.save(order);
+        order.setCanceledAt(LocalDateTime.now());
+
+        // Lấy record payment liên quan (nếu có)
+        Payments payment = paymentRepository.findByOrderId(orderId).orElse(null);
+        if (payment != null) {
+            // Nếu payment chưa được hoàn tiền, set trạng thái REFUNDED
+            if (payment.getStatus().equals(PaymentStatus.COMPLETED)
+                    || payment.getStatus().equals(PaymentStatus.PENDING)) {
+                payment.setStatus(PaymentStatus.REFUNDED);
+                payment.setRefundAmount(payment.getAmount());       // Nếu bạn muốn lưu lại số tiền đã hoàn
+                payment.setRefundedAt(LocalDateTime.now());         // Thời điểm hoàn tiền
+                paymentRepository.save(payment);
+            } else {
+                // Nếu payment còn ở status khác (FAILED/CANCELLED), giữ nguyên
+            }
+        }
+
+        // 2. Xóa bản ghi PromotionUsage nếu có
         if (order.getPromotionId() != null) {
             promotionUsageRepository.deleteByOrderId(orderId);
         }
+
+        // 3. Trả lại tồn kho dựa trên OrderDetails
         List<OrderDetails> details = orderDetailRepository.findByOrderId(orderId);
         for (OrderDetails detail : details) {
             ProductVariant variant = productVariantRepository.findByIdNotDeletedWithLock(detail.getVariantId())
@@ -218,6 +303,8 @@ public class OrderServiceImpl implements OrderService {
             if (variant != null) {
                 variant.setStock(variant.getStock() + detail.getQuantity());
                 productVariantRepository.save(variant);
+
+                // Ghi log trả kho
                 InventoryLogs log = new InventoryLogs();
                 log.setVariantId(detail.getVariantId());
                 log.setQuantityChange(detail.getQuantity());
@@ -226,6 +313,9 @@ public class OrderServiceImpl implements OrderService {
                 inventoryLogRepository.save(log);
             }
         }
+
+        // 4. Lưu order đã cập nhật
+        orderRepository.save(order);
     }
 
     @Override

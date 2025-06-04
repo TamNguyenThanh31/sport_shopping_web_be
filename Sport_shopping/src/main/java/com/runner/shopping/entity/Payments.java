@@ -41,6 +41,14 @@ public class Payments {
     @Column(name = "client_ip")
     private String clientIp;
 
+    // (Tùy chọn) Số tiền đã hoàn (nếu có hoàn)
+    @Column(name = "refund_amount")
+    private BigDecimal refundAmount;
+
+    // (Tùy chọn) Thời điểm đã hoàn tiền
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }

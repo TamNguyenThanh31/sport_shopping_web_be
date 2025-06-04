@@ -11,6 +11,7 @@ public class ProductVariantDTO {
     private String size;
     private String color;
     private int stock;
-    private BigDecimal price;
+    private BigDecimal costPrice;  // giá nhập
+    private BigDecimal price;      // giá bán
     private String sku;
 }
