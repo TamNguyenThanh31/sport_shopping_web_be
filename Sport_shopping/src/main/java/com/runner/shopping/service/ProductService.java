@@ -15,4 +15,4 @@ public interface ProductService {
     ProductDTO updateProduct(Long id, ProductDTO productDTO, List<MultipartFile> imageFiles, List<Boolean> isPrimaryFlags);
     void deleteProduct(Long id);
     Page<ProductDTO> searchProducts(String keyword, Pageable pageable);
-}
+    Page<ProductDTO> getProductsByCategory(Long categoryId, Pageable pageable);}

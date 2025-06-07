@@ -28,4 +28,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             "WHERE p.deleted = 0")
     List<ProductDTO> findAllActiveProducts();
 
+    @Query("SELECT p FROM Product p WHERE p.categoryId = :categoryId AND p.deleted = 0 AND p.active = true")
+    Page<Product> findByCategoryId(@Param("categoryId") Long categoryId, Pageable pageable);
+
 }
