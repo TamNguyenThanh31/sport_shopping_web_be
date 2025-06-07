@@ -198,6 +198,44 @@ public class ProductServiceImpl implements ProductService {
         });
     }
 
+    @Override
+    public Page<ProductDTO> getProductsByCategory(Long categoryId, Pageable pageable) {
+        // Kiểm tra danh mục
+        categoryRepository.findById(categoryId)
+                .filter(c -> c.getDeleted() == 0)
+                .orElseThrow(() -> new IllegalArgumentException("Danh mục không tồn tại hoặc đã bị xóa"));
+
+        // Lấy sản phẩm theo danh mục
+        Page<Product> productPage = productRepository.findByCategoryId(categoryId, pageable);
+
+        // Lấy ID sản phẩm
+        List<Long> productIds = productPage.getContent().stream()
+                .map(Product::getId)
+                .collect(Collectors.toList());
+
+        // Lấy biến thể và hình ảnh
+        List<ProductVariant> variants = productVariantRepository.findByProductIdsNotDeleted(productIds);
+        List<ProductImage> images = productImageRepository.findByProductIdInNotDeleted(productIds);
+
+        // Nhóm biến thể và hình ảnh theo productId
+        Map<Long, List<ProductVariant>> variantMap = variants.stream()
+                .collect(Collectors.groupingBy(ProductVariant::getProductId));
+        Map<Long, List<ProductImage>> imageMap = images.stream()
+                .collect(Collectors.groupingBy(ProductImage::getProductId));
+
+        // Chuyển sang ProductDTO
+        return productPage.map(product -> {
+            ProductDTO dto = productMapper.toDTO(product);
+            dto.setVariants(productMapper.toVariantDTOList(
+                    variantMap.getOrDefault(product.getId(), List.of())
+            ));
+            dto.setImages(productMapper.toImageDTOList(
+                    imageMap.getOrDefault(product.getId(), List.of())
+            ));
+            return dto;
+        });
+    }
+
     private void validateCategory(Long categoryId) {
         categoryRepository.findById(categoryId)
                 .filter(c -> c.getDeleted() == 0)

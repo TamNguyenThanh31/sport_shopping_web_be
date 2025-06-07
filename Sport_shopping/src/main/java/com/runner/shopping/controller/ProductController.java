@@ -185,4 +185,23 @@ public class ProductController {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to search products", e);
         }
     }
+
+    @GetMapping("/category/{categoryId}")
+    public ResponseEntity<Page<ProductDTO>> getProductsByCategory(
+            @PathVariable Long categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<ProductDTO> products = productService.getProductsByCategory(categoryId, pageable);
+            log.info("Lấy được {} sản phẩm cho danh mục ID: {}", products.getTotalElements(), categoryId);
+            return ResponseEntity.ok(products);
+        } catch (IllegalArgumentException e) {
+            log.error("Danh mục không hợp lệ: {}", categoryId, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy sản phẩm cho danh mục: {}", categoryId, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi server");
+        }
+    }
 }
