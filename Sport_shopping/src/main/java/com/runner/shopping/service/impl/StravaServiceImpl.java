@@ -292,6 +292,7 @@ public class StravaServiceImpl implements StravaService {
         p.setDiscountAmount(discountAmt);    // áp tiền
         p.setMinimumOrderValue(BigDecimal.ZERO);
         p.setIsActive(true);
+        p.setMaxUsage(1);
         p.setCreatedAt(LocalDateTime.now());
         promoRepo.save(p);
 
