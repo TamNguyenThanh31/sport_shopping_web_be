@@ -24,6 +24,9 @@ public class PromotionDTO {
     @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class)
     private BigDecimal discountPercentage;
 
+    // Thêm trường mới
+    private BigDecimal discountAmount;
+
     @DecimalMin(value = "0.0", message = "Minimum order value must be at least 0")
     @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class)
     private BigDecimal minimumOrderValue;

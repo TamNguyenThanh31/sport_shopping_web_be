@@ -22,13 +22,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Tắt CSRF, chuyển sang STATELESS vì JWT
+                // Tắt CSRF, chuyển sang STATELESS vì dùng JWT
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ================================
+
                         // 1. Public endpoints
-                        // ================================
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/products",
@@ -45,10 +44,7 @@ public class SecurityConfig {
                                 "/ws-support/**",
                                 "/ws/**"
                         ).permitAll()
-
-                        // ================================
-                        // 2. Customer‐only endpoints (đã có ROLE_CUSTOMER)
-                        // ================================
+                        // 3. Customer‐only endpoints
                         .requestMatchers(HttpMethod.POST,
                                 "/api/orders",
                                 "/api/orders/*/cancel",
@@ -91,9 +87,15 @@ public class SecurityConfig {
                                 "/api/users/update-customer"
                         ).hasAnyAuthority("ROLE_CUSTOMER", "ROLE_ADMIN")
 
-                        // ================================
-                        // 3. Staff‐only endpoints (ROLE_STAFF)
-                        // ================================
+                        // Strava – chỉ CUSTOMER
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/strava/callback", "/api/strava/status", "/api/strava/coupons"
+                        ).hasAuthority("ROLE_CUSTOMER")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/strava/redeem-coupon"
+                        ).hasAuthority("ROLE_CUSTOMER")
+
+                        // 5. Staff‐only endpoints
                         .requestMatchers(HttpMethod.POST,
                                 "/api/promotions",
                                 "/api/sessions/{sessionId}/assign"
@@ -104,43 +106,42 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/promotions/**"
                         ).hasAuthority("ROLE_STAFF")
+
                         .requestMatchers(HttpMethod.GET,
                                 "/api/promotions",
-                                "/api/promotions/**",
-                                "/api/sessions/available"
-                        ).hasAnyAuthority("ROLE_STAFF", "ROLE_CUSTOMER")
+                                "/api/promotions/**")
+                        .hasAnyAuthority("ROLE_STAFF","ROLE_CUSTOMER")
 
-                        // ================================
-                        // 4. “sessions/active” có thể là Customer hoặc Staff
-                        // ================================
+                        // 5. Strava coupons riêng
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/strava/coupons")
+                        .hasAuthority("ROLE_CUSTOMER")
+
+                        // Session-available vẫn cho customer & staff
+                                .requestMatchers(HttpMethod.GET,
+                                        "/api/sessions/available"
+                                ).hasAnyAuthority("ROLE_STAFF", "ROLE_CUSTOMER")
+
+                        // 6. “sessions/active” cho Customer hoặc Staff
                         .requestMatchers(HttpMethod.GET,
                                 "/api/sessions/active",
                                 "/api/sessions/{sessionId}/messages"
                         ).hasAnyAuthority("ROLE_CUSTOMER", "ROLE_STAFF")
 
-                        // ================================
-                        // 5. Admin‐only endpoints
-                        // ================================
+                        // 7. Admin‐only endpoints
                         .requestMatchers("/api/admin/**")
                         .hasAuthority("ROLE_ADMIN")
 
-                        // ================================
-                        // 6. WebSocket/SockJS STOMP endpoints
-                        // ================================
-                        // STOMP handshake (CONNECT) không cần auth tại HTTP layer
+                        // 8. WebSocket/SockJS STOMP endpoints
                         .requestMatchers("/ws-support/**", "/ws/**").permitAll()
-
-                        // STOMP destinations (khi subscribe hoặc send qua /topic/** hoặc /queue/**) bắt buộc Authenticated
                         .requestMatchers(HttpMethod.GET,
                                 "/topic/**", "/queue/**"
                         ).authenticated()
 
-                        // ================================
-                        // 7. Các request còn lại buộc xác thực
-                        // ================================
+                        // 9. Các request còn lại yêu cầu auth
                         .anyRequest().authenticated()
                 )
-                // Thêm filter JWT chạy trước UsernamePasswordAuthenticationFilter
+                // Thêm filter JWT trước UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
