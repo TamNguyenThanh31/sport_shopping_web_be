@@ -40,6 +40,9 @@ public class User {
     @Column(name = "phone_number", nullable = false)
     private String phoneNumber;
 
+    @Column(name = "strava_id", length = 50)
+    private String stravaId;   // lưu athlete ID của Strava
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

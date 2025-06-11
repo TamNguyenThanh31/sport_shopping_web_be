@@ -22,4 +22,11 @@ public interface PromotionService {
     Page<PromotionDTO> getPromotions(String code, Boolean isActive,
                                      LocalDateTime dateFrom, LocalDateTime dateTo,
                                      Pageable pageable);
+
+    Page<PromotionDTO> getPromotionsForCustomer(Long customerId,
+                                            String code,
+                                            Boolean isActive,
+                                            LocalDateTime dateFrom,
+                                            LocalDateTime dateTo,
+                                            Pageable pageable);
 }

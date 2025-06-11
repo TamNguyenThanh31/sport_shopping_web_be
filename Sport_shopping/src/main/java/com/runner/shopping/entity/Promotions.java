@@ -20,8 +20,11 @@ public class Promotions {
     @Column(nullable = false)
     private String code;
 
-    @Column(name = "discount_percentage", nullable = false)
+    @Column(name = "discount_percentage")
     private BigDecimal discountPercentage;
+
+    @Column(name = "discount_amount", precision = 15, scale = 2)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
 
     @Column(name = "minimum_order_value")
     private BigDecimal minimumOrderValue;

@@ -6,16 +6,19 @@ import com.runner.shopping.exception.ResourceNotFoundException;
 import com.runner.shopping.mapper.PromotionMapper;
 import com.runner.shopping.model.dto.PromotionDTO;
 import com.runner.shopping.repository.PromotionRepository;
+import com.runner.shopping.repository.PromotionUsageRepository;
 import com.runner.shopping.repository.UserRepository;
 import com.runner.shopping.service.PromotionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class PromotionServiceImpl implements PromotionService {
     private final PromotionRepository promotionRepository;
     private final UserRepository userRepository;
     private final PromotionMapper promotionMapper;
+    private final PromotionUsageRepository promotionUsageRepository;
 
     @Override
     @Transactional
@@ -97,10 +101,43 @@ public class PromotionServiceImpl implements PromotionService {
         return promotionsPage.map(promotionMapper::toDTO);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PromotionDTO> getPromotionsForCustomer(Long customerId,
+                                                   String code,
+                                                   Boolean isActive,
+                                                   LocalDateTime dateFrom,
+                                                   LocalDateTime dateTo,
+                                                   Pageable pageable) {
+        // 1. Validate user exists và phải là CUSTOMER
+        validateCustomer(customerId);
+
+        // 2. Lấy list theo filter chung
+        Page<Promotions> page = promotionRepository.findPromotionsForCustomerWithCoupon(
+                customerId, code, isActive, dateFrom, dateTo, pageable
+        );
+
+        // 3. Lọc ra những promotion đã dùng rồi
+        List<PromotionDTO> filtered = page.getContent().stream()
+                .filter(p -> !promotionUsageRepository.existsByPromotionIdAndUserId(p.getId(), customerId))
+                .map(promotionMapper::toDTO)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(filtered, pageable, filtered.size());
+    }
+
+
     private void validateStaff(Long staffId) {
         userRepository.findById(staffId)
                 .filter(user -> user.getRole() == UserRole.STAFF)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found or not a staff with id: " + staffId));
+    }
+
+    private void validateCustomer(Long userId) {
+        userRepository.findById(userId)
+                .filter(u -> u.getRole() == UserRole.CUSTOMER)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found or not a customer with id: " + userId));
     }
 
     private void validatePromotionDates(PromotionDTO promotionDTO) {

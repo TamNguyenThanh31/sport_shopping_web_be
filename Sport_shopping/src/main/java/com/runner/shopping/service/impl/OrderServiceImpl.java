@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -170,8 +169,28 @@ public class OrderServiceImpl implements OrderService {
                     "Tổng giá trị đơn hàng không đạt mức tối thiểu để áp dụng khuyến mãi: " + promotion.getCode());
         }
 
-        // 9. Tính discount và totalPrice cuối cùng
-        BigDecimal discount = subTotal.multiply(discountPercentage).divide(BigDecimal.valueOf(100));
+        // 9A. Tính discount dựa trên discountAmount hoặc discountPercentage
+        BigDecimal discount = BigDecimal.ZERO;
+        if (promotion != null) {
+            // 9.1. Ưu tiên discountAmount nếu > 0
+            if (promotion.getDiscountAmount() != null
+                    && promotion.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                discount = promotion.getDiscountAmount();
+            }
+            // 9.2. Ngược lại nếu có discountPercentage thì tính %
+            else if (promotion.getDiscountPercentage() != null
+                    && promotion.getDiscountPercentage().compareTo(BigDecimal.ZERO) > 0) {
+                discount = subTotal
+                        .multiply(promotion.getDiscountPercentage())
+                        .divide(BigDecimal.valueOf(100));
+            }
+            // 9.3. Đảm bảo discount không vượt quá subTotal
+            if (discount.compareTo(subTotal) > 0) {
+                discount = subTotal;
+            }
+        }
+
+        // 9B. Tính tổng giá sau khi trừ khuyến mãi
         BigDecimal totalPrice = subTotal.subtract(discount);
 
         // 10. Tính tổng lợi nhuận = totalPrice – totalCost

@@ -18,11 +18,10 @@ public class PromotionDTO {
     @NotBlank(message = "Code is required")
     private String code;
 
-    @NotNull(message = "Discount percentage is required")
-    @DecimalMin(value = "0.0", message = "Discount percentage must be at least 0")
-    @DecimalMax(value = "100.0", message = "Discount percentage must not exceed 100")
     @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class)
     private BigDecimal discountPercentage;
+
+    private BigDecimal discountAmount;
 
     @DecimalMin(value = "0.0", message = "Minimum order value must be at least 0")
     @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class)
