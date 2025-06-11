@@ -2,6 +2,7 @@ package com.runner.shopping.controller;
 
 import com.runner.shopping.model.dto.PromotionDTO;
 import com.runner.shopping.service.PromotionService;
+import com.runner.shopping.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,6 +22,7 @@ import java.util.List;
 public class PromotionController {
 
     private final PromotionService promotionService;
+    private final UserService userService;
 
     @PostMapping
     public ResponseEntity<PromotionDTO> createPromotion(@RequestParam Long staffId, @Valid @RequestBody PromotionDTO promotionDTO) {
@@ -49,6 +51,26 @@ public class PromotionController {
     @GetMapping
     public ResponseEntity<List<PromotionDTO>> getAllPromotions() {
         List<PromotionDTO> promotions = promotionService.getAllPromotions();
+        return ResponseEntity.ok(promotions);
+    }
+
+    // Dành cho khách hàng
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<List<PromotionDTO>> getAllPromotionsForCustomer(
+            @PathVariable Long customerId
+    ) {
+        // Dùng Pageable.unpaged() để service không phải phân trang
+        List<PromotionDTO> promotions = promotionService
+                .getPromotionsForCustomer(
+                        customerId,
+                        null,    // code
+                        null,    // isActive
+                        null,    // dateFrom
+                        null,    // dateTo
+                        Pageable.unpaged()
+                )
+                .getContent();
+
         return ResponseEntity.ok(promotions);
     }
 

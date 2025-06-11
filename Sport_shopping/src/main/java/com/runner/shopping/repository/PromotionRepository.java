@@ -33,4 +33,48 @@ public interface PromotionRepository extends JpaRepository<Promotions, Long> {
             @Param("dateFrom") LocalDateTime dateFrom,
             @Param("dateTo") LocalDateTime dateTo,
             Pageable pageable);
+
+    @Query(
+            value =
+                    "SELECT p.* " +
+                            "  FROM promotions p " +
+                            "  LEFT JOIN strava_coupon sc   " +
+                            "    ON sc.promotion_id = p.id  " +
+                            "   AND sc.user_id      = :customerId     -- chỉ join coupon của đúng user  \n" +
+                            " WHERE (sc.user_id = :customerId                                          \n" +
+                            "        OR NOT EXISTS (                                                    \n" +
+                            "             SELECT 1                                                     \n" +
+                            "               FROM strava_coupon sc2                                     \n" +
+                            "              WHERE sc2.promotion_id = p.id                               \n" +
+                            "        )                                                                  \n" +
+                            "       )                                                                  \n" +
+                            "   AND (:code     IS NULL OR LOWER(p.code)   LIKE LOWER(CONCAT('%',:code,'%')))  \n" +
+                            "   AND (:isActive IS NULL OR p.is_active     = :isActive)                       \n" +
+                            "   AND (:dateFrom IS NULL OR :dateTo IS NULL                                   \n" +
+                            "        OR (p.start_date <= :dateTo AND p.end_date >= :dateFrom))",
+//            countQuery =
+//                    "SELECT COUNT(*) FROM promotions p " +
+//                            "  LEFT JOIN strava_coupon sc   " +
+//                            "    ON sc.promotion_id = p.id AND sc.user_id = :customerId " +
+//                            " WHERE (sc.user_id = :customerId                                    " +
+//                            "        OR NOT EXISTS (                                             " +
+//                            "             SELECT 1                                              " +
+//                            "               FROM strava_coupon sc2                              " +
+//                            "              WHERE sc2.promotion_id = p.id                        " +
+//                            "        )                                                         " +
+//                            "       )                                                         " +
+//                            "   AND (:code     IS NULL OR LOWER(p.code)   LIKE LOWER(CONCAT('%',:code,'%')))  \n" +
+//                            "   AND (:isActive IS NULL OR p.is_active     = :isActive)                       \n" +
+//                            "   AND (:dateFrom IS NULL OR :dateTo IS NULL                                   \n" +
+//                            "        OR (p.start_date <= :dateTo AND p.end_date >= :dateFrom))",
+            nativeQuery = true
+    )
+    Page<Promotions> findPromotionsForCustomerWithCoupon(
+            @Param("customerId") Long customerId,
+            @Param("code")       String code,
+            @Param("isActive")   Boolean isActive,
+            @Param("dateFrom")   LocalDateTime dateFrom,
+            @Param("dateTo")     LocalDateTime dateTo,
+            Pageable pageable
+    );
 }
