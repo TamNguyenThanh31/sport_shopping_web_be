@@ -196,21 +196,22 @@ public class StravaServiceImpl implements StravaService {
     //    CỨ 100m là đổi mã gỉamr giá
     @Override
     public StravaStatusDTO getStatus(Long userId, int days) {
+        // 1) Lấy token Strava của user
         StravaToken t = tokenRepo.findByUserId(userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Chưa kết nối Strava"));
 
-        // Refresh nếu expired
+        // 2) Refresh token nếu expired
         if (t.getExpiresAt().isBefore(Instant.now())) {
             refreshToken(t);
         }
 
-        // Tính timestamp 'after'
+        // 3) Tính timestamp 'after'
         long after = Instant.now()
                 .minus(days, ChronoUnit.DAYS)
                 .getEpochSecond();
 
-        // Phân trang để gom hết activities
+        // 4) Phân trang để gom hết activities
         List<Map<String, Object>> all = new ArrayList<>();
         int page = 1;
         while (true) {
@@ -222,8 +223,7 @@ public class StravaServiceImpl implements StravaService {
             List<Map<String, Object>> pageList = rt.exchange(
                     url, HttpMethod.GET,
                     new HttpEntity<>(headers),
-                    new ParameterizedTypeReference<List<Map<String, Object>>>() {
-                    }
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {}
             ).getBody();
             if (pageList == null || pageList.isEmpty()) break;
             all.addAll(pageList);
@@ -231,41 +231,40 @@ public class StravaServiceImpl implements StravaService {
             page++;
         }
 
-        // 1) Tính tổng mét cho type="Run"
+        // 5) Tính tổng mét và tổng thời gian di chuyển cho type="Run"
         double totalMeters = 0;
         long totalMovingSec = 0;
         for (var a : all) {
             if ("Run".equals(a.get("type"))) {
-                totalMeters += ((Number) a.get("distance")).doubleValue();
+                totalMeters    += ((Number) a.get("distance")).doubleValue();
                 totalMovingSec += ((Number) a.get("moving_time")).longValue();
             }
         }
 
-        // 2) Lấy tổng usedMeters của user từ DB
+        // 6) Lấy tổng usedMeters của user từ DB
         int usedMeters = couponRepo.sumUsedMetersByUser(userId);
 
-        // 3) Tính availableMeters
-        int availMeters = Math.max(0, (int) Math.floor(totalMeters) - usedMeters);
+        // 7) Tính availableMeters và discount
+        int availMeters = Math.max(0, (int)Math.floor(totalMeters) - usedMeters);
+        // mỗi 100m = 1.000₫
+        int discount = (availMeters / 100) * 1000;
 
-        // 4) Tính discount: mỗi 100m = 5%
-        int discount = (availMeters / 100) * 5;
-
-        // 5) Tính pace
-        long avgSec = totalMeters > 0
-                ? Math.round(totalMovingSec / totalMeters * 1000)  // moving_time per meter → sec per meter
+        // 8) Tính pace trung bình (phút:giây per km)
+        //    secPerKm = totalMovingSec (giây) / (totalMeters/1000) (km)
+        long secPerKm = totalMeters > 0
+                ? Math.round(totalMovingSec * 1000.0 / totalMeters)
                 : 0;
-        // chuyển sec/m ra mm:ss per km
-        long secPerKm = avgSec * 1000;
         String pace = String.format("%02d:%02d", secPerKm / 60, secPerKm % 60);
 
-        // 6) Build DTO (bạn có thể mở rộng DTO để trả về cả availableMeters)
+        // 9) Build DTO
         StravaStatusDTO dto = new StravaStatusDTO();
         dto.setTotalDistanceKm(totalMeters / 1000.0);
         dto.setAveragePace(pace);
-        dto.setAvailableKm(availMeters);      // tái sử dụng availableKm cho mét
+        dto.setAvailableKm(availMeters);   // vẫn dùng availableKm để chứa mét khả dụng
         dto.setCurrentDiscount(discount);
         return dto;
     }
+
 
     @Override
     public PromotionDTO redeemCoupon(Long userId, int requestedMeters) {
