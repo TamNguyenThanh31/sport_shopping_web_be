@@ -54,6 +54,7 @@ public class OrderServiceImpl implements OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderMapper orderMapper;
     private final AddressMapper addressMapper;
+    private final PaymentRepository paymentsRepository;
 
     @Override
     @Transactional
@@ -240,18 +241,37 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderDTO getOrderById(Long id, Long userId) {
         Orders order = orderRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tìm thấy với id: " + id + " cho người dùng: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Đơn hàng không tìm thấy với id: " + id + " cho người dùng: " + userId));
+
         OrderDTO orderDTO = orderMapper.toDTO(order);
-        orderDTO.setOrderDetails(enrichOrderDetails(orderDetailRepository.findByOrderId(id)));
-        orderDTO.setAddressDetails(addressRepository.findById(order.getAddressId())
-                .map(addressMapper::toDTO).orElse(null));
+        // order details
+        orderDTO.setOrderDetails(
+                enrichOrderDetails(orderDetailRepository.findByOrderId(id))
+        );
+        // address
+        orderDTO.setAddressDetails(
+                addressRepository.findById(order.getAddressId())
+                        .map(addressMapper::toDTO)
+                        .orElse(null)
+        );
+        // promotion code
         if (order.getPromotionId() != null) {
             promotionRepository.findById(order.getPromotionId())
                     .ifPresent(p -> orderDTO.setPromotionCode(p.getCode()));
         }
+        // **lấy paymentMethod**
+        Payments payment = paymentRepository
+                .findFirstByOrderIdOrderByCreatedAtDesc(order.getId());
+        if (payment != null) {
+            orderDTO.setPaymentMethod(payment.getPaymentMethod());
+        }
+        // createdAt (nếu bạn muốn ghi đè lại)
         orderDTO.setCreatedAt(order.getCreatedAt());
+
         return orderDTO;
     }
+
 
     @Override
     @Transactional
@@ -360,25 +380,54 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public Page<OrderDTO> getAllOrders(Long staffId, OrderStatus status, Long userId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+    public Page<OrderDTO> getAllOrders(Long staffId,
+                                       OrderStatus status,
+                                       Long userId,
+                                       LocalDateTime startDate,
+                                       LocalDateTime endDate,
+                                       Pageable pageable) {
         validateStaff(staffId);
-        Page<Orders> ordersPage = orderRepository.findOrdersWithFilters(status, userId, startDate, endDate, pageable);
+
+        Page<Orders> ordersPage = orderRepository
+                .findOrdersWithFilters(status, userId, startDate, endDate, pageable);
+
         List<OrderDTO> orderDTOs = ordersPage.getContent().stream()
                 .map(order -> {
                     OrderDTO dto = orderMapper.toDTO(order);
-                    dto.setOrderDetails(enrichOrderDetails(orderDetailRepository.findByOrderId(dto.getId())));
-                    dto.setAddressDetails(addressRepository.findById(order.getAddressId())
-                            .map(addressMapper::toDTO).orElse(null));
+
+                    // details + address + promotion như cũ...
+                    dto.setOrderDetails(
+                            enrichOrderDetails(
+                                    orderDetailRepository.findByOrderId(dto.getId())
+                            )
+                    );
+                    dto.setAddressDetails(
+                            addressRepository.findById(order.getAddressId())
+                                    .map(addressMapper::toDTO)
+                                    .orElse(null)
+                    );
                     if (order.getPromotionId() != null) {
                         promotionRepository.findById(order.getPromotionId())
                                 .ifPresent(p -> dto.setPromotionCode(p.getCode()));
                     }
+
+                    //lấy payment method
+                    Payments payment = paymentRepository
+                            .findFirstByOrderIdOrderByCreatedAtDesc(order.getId());
+                    if (payment != null) {
+                        dto.setPaymentMethod(payment.getPaymentMethod());
+                    }
+
                     dto.setCreatedAt(order.getCreatedAt());
                     return dto;
                 })
                 .collect(Collectors.toList());
-        return new PageImpl<>(orderDTOs, pageable, ordersPage.getTotalElements());
+
+        return new PageImpl<>(orderDTOs,
+                pageable,
+                ordersPage.getTotalElements());
     }
+
 
     @Override
     @Transactional
