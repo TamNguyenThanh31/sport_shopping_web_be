@@ -360,23 +360,121 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO updateOrderStatus(Long orderId, OrderStatus newStatus, Long staffId) {
+        // 1. Xác thực nhân viên
         validateStaff(staffId);
+
+        // 2. Lấy Order hiện tại (entity managed)
         Orders order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tìm thấy với id: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Đơn hàng không tìm thấy với id: " + orderId));
+
+        // 3. Lấy bản ghi Payment mới nhất để biết paymentMethod
+        Payments latestPay = paymentRepository
+                .findFirstByOrderIdOrderByCreatedAtDesc(orderId);
+        PaymentMethod payMethod = (latestPay != null)
+                ? latestPay.getPaymentMethod() : null;
+
+        // 4. Lấy trạng thái thanh toán hiện tại từ Order
+        PaymentStatus currentPay = order.getPaymentStatus();
+
+        // 5. Tính trạng thái thanh toán kế tiếp theo rule
+        PaymentStatus nextPay = resolveNextPaymentStatus(newStatus, payMethod, currentPay);
+
+        // 6. Cập nhật trạng thái đơn và người xử lý
         order.setStatus(newStatus);
         order.setHandledBy(staffId);
-        Orders savedOrder = orderRepository.save(order);
-        OrderDTO result = orderMapper.toDTO(savedOrder);
-        result.setOrderDetails(enrichOrderDetails(orderDetailRepository.findByOrderId(orderId)));
-        result.setAddressDetails(addressRepository.findById(savedOrder.getAddressId())
-                .map(addressMapper::toDTO).orElse(null));
-        if (savedOrder.getPromotionId() != null) {
-            promotionRepository.findById(savedOrder.getPromotionId())
-                    .ifPresent(p -> result.setPromotionCode(p.getCode()));
+
+        // 7. Nếu hủy đơn, ghi thời điểm hủy
+        if (newStatus == OrderStatus.CANCELLED) {
+            order.setCanceledAt(LocalDateTime.now());
         }
-        result.setCreatedAt(savedOrder.getCreatedAt());
-        return result;
+
+        // 8. Nếu cần đổi trạng thái thanh toán trên Order + Payment
+        if (nextPay != null && nextPay != currentPay) {
+            // 8.1. Cập nhật trên Orders
+            order.setPaymentStatus(nextPay);
+
+            // 8.2. Đồng bộ lên bảng Payments
+            if (latestPay != null) {
+                BigDecimal refundAmt = null;
+                LocalDateTime refundedAt = null;
+
+                // Nếu trạng thái REFUNDED thì set refundAmount + refundedAt
+                if (nextPay == PaymentStatus.REFUNDED) {
+                    refundAmt  = order.getTotalPrice();
+                    refundedAt = LocalDateTime.now();
+                }
+
+                paymentRepository.updateStatusAndRefund(
+                        latestPay.getId(),
+                        nextPay,
+                        refundAmt,
+                        refundedAt
+                );
+            }
+        }
+
+        // 9. Lưu lại Order (flush tất cả thay đổi)
+        Orders saved = orderRepository.save(order);
+
+        // 10. Build và trả về DTO (MapStruct + enrich)
+        return buildDto(saved);
     }
+
+    /**
+     * Ánh xạ OrderStatus → PaymentStatus theo nghiệp vụ:
+     * - DELIVERED + COD      → COMPLETED
+     * - DELIVERED + VNPAY    → giữ nguyên (COMPLETED từ trước)
+     * - CANCELLED + VNPAY    → REFUNDED
+     * - CANCELLED + (COD)    → CANCELLED
+     * - Các trạng thái khác  → null (không đổi)
+     */
+    private PaymentStatus resolveNextPaymentStatus(
+            OrderStatus orderSt,
+            PaymentMethod payMethod,
+            PaymentStatus currentPay) {
+
+        if (orderSt == OrderStatus.DELIVERED
+                && payMethod == PaymentMethod.CASH_ON_DELIVERY
+                && currentPay != PaymentStatus.COMPLETED) {
+            return PaymentStatus.COMPLETED;
+        }
+
+        if (orderSt == OrderStatus.CANCELLED) {
+            if (payMethod == PaymentMethod.VNPAY
+                    && currentPay != PaymentStatus.REFUNDED) {
+                return PaymentStatus.REFUNDED;
+            }
+            if (payMethod != PaymentMethod.VNPAY
+                    && currentPay != PaymentStatus.CANCELLED) {
+                return PaymentStatus.CANCELLED;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Tạo OrderDTO, bao gồm enrich details và address
+     */
+    private OrderDTO buildDto(Orders o) {
+        OrderDTO dto = orderMapper.toDTO(o);
+        dto.setOrderDetails(
+                enrichOrderDetails(orderDetailRepository.findByOrderId(o.getId()))
+        );
+        dto.setAddressDetails(
+                addressRepository.findById(o.getAddressId())
+                        .map(addressMapper::toDTO)
+                        .orElse(null)
+        );
+        if (o.getPromotionId() != null) {
+            promotionRepository.findById(o.getPromotionId())
+                    .ifPresent(p -> dto.setPromotionCode(p.getCode()));
+        }
+        dto.setCreatedAt(o.getCreatedAt());
+        return dto;
+    }
+
 
     @Override
     @Transactional
