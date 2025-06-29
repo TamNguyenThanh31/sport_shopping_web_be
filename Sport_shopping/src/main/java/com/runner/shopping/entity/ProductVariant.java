@@ -25,10 +25,10 @@ public class ProductVariant {
     private int stock;
 
     @Column(name = "cost_price", nullable = false)
-    private BigDecimal costPrice; // giá nhập (mới) // giá bán hiện tại
+    private BigDecimal costPrice; // giá nhập
 
     @Column(nullable = false)
-    private BigDecimal price;
+    private BigDecimal price; // giá bán hiện tại
 
     @Column(nullable = false)
     private String sku;
