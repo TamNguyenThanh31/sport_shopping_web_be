@@ -6,6 +6,7 @@ import com.runner.shopping.enums.UserRole;
 import com.runner.shopping.mapper.UserMapper;
 import com.runner.shopping.model.dto.OrderDTO;
 import com.runner.shopping.model.dto.ProductVariantInfoDTO;
+import com.runner.shopping.model.dto.ReportOrderDTO;
 import com.runner.shopping.model.dto.UserDTO;
 import com.runner.shopping.service.OrderService;
 import com.runner.shopping.service.ReportService;
@@ -270,5 +271,34 @@ public class AdminController {
         Pageable pageable = PageRequest.of(page, size);
         Page<OrderDTO> orders = orderService.getAllOrders(staffId, status, userId, startDate, endDate, pageable);
         return ResponseEntity.ok(orders);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────────
+    // Doanh thu, lợi nhuận, chi tiết lợi nhuận
+    // ──────────────────────────────────────────────────────────────────────────────
+
+
+    @GetMapping("/reports/revenue/detail/today")
+    public Page<ReportOrderDTO> detailToday(
+            @RequestParam Long staffId,
+            Pageable pageable
+    ) {
+        return reportService.revenueDetailToday(staffId, pageable);
+    }
+
+    @GetMapping("/reports/revenue/detail/week")
+    public Page<ReportOrderDTO> detailWeek(
+            @RequestParam Long staffId,
+            Pageable pageable
+    ) {
+        return reportService.revenueDetailThisWeek(staffId, pageable);
+    }
+
+    @GetMapping("/reports/revenue/detail/month")
+    public Page<ReportOrderDTO> detailMonth(
+            @RequestParam Long staffId,
+            Pageable pageable
+    ) {
+        return reportService.revenueDetailThisMonth(staffId, pageable);
     }
 }

@@ -1,12 +1,20 @@
 // src/main/java/com/runner/shopping/service/impl/ReportServiceImpl.java
 package com.runner.shopping.service.impl;
 
+import com.runner.shopping.entity.ProductVariant;
+import com.runner.shopping.model.dto.OrderDTO;
 import com.runner.shopping.model.dto.ProductVariantInfoDTO;
+import com.runner.shopping.model.dto.ReportOrderDTO;
+import com.runner.shopping.model.dto.ReportOrderItemDTO;
 import com.runner.shopping.repository.OrderRepository;
 import com.runner.shopping.repository.ProductVariantRepository;
+import com.runner.shopping.repository.UserRepository;
+import com.runner.shopping.service.OrderService;
 import com.runner.shopping.service.ReportService;
 import com.runner.shopping.enums.OrderStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,6 +28,8 @@ public class ReportServiceImpl implements ReportService {
 
     private final OrderRepository          orderRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final UserRepository           userRepository;
+    private final OrderService             orderService;
 
     // Các status hợp lệ để tính doanh thu/lợi nhuận
     private static final List<OrderStatus> VALID_STATUSES =
@@ -119,5 +129,67 @@ public class ReportServiceImpl implements ReportService {
         }
 
         return stockMap;
+    }
+
+    @Override
+    public Page<ReportOrderDTO> revenueDetail(
+            Long staffId,
+            LocalDateTime from,
+            LocalDateTime to,
+            Pageable pageable
+    ) {
+        // 1. Lấy Page<OrderDTO> (có sẵn orderDetails enriched)
+        Page<OrderDTO> orders = orderService.getAllOrders(
+                staffId,
+                null,   // không lọc status
+                null,   // không lọc theo userId
+                from,
+                to,
+                pageable
+        );
+
+        // 2. Map từng OrderDTO → ReportOrderDTO
+        return orders.map(orderDto -> {
+            // 2.1. Lấy customerName từ User.username
+            String customerName = userRepository.findById(orderDto.getUserId())
+                    .map(u -> u.getUsername())
+                    .orElse("N/A");
+
+            // 2.2. Chuyển OrderDetailDTO → ReportOrderItemDTO
+            var items = orderDto.getOrderDetails().stream()
+                    .map(d -> {
+                        // Tính lợi nhuận từng dòng
+                        BigDecimal lineProfit = d.getPriceAtTime()
+                                .subtract(d.getCostAtTime())
+                                .multiply(BigDecimal.valueOf(d.getQuantity()));
+
+                        // Lấy sku từ ProductVariantRepository
+                        String sku = productVariantRepository
+                                .findByIdNotDeleted(d.getVariantId())
+                                .map(ProductVariant::getSku)
+                                .orElse("");
+
+                        return new ReportOrderItemDTO(
+                                d.getProductName(),
+                                sku,
+                                d.getQuantity(),
+                                d.getCostAtTime(),
+                                d.getPriceAtTime(),
+                                lineProfit
+                        );
+                    })
+                    .toList();
+
+            // 2.3. Tạo ReportOrderDTO với summary + items
+            return new ReportOrderDTO(
+                    orderDto.getId(),
+                    orderDto.getCreatedAt(),
+                    customerName,
+                    orderDto.getTotalPrice(),
+                    orderDto.getTotalCost(),
+                    orderDto.getTotalProfit(),
+                    items
+            );
+        });
     }
 }
