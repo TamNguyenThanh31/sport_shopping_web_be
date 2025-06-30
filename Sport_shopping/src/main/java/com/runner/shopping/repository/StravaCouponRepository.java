@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface StravaCouponRepository extends JpaRepository<StravaCoupon, Long> {
@@ -16,4 +17,15 @@ public interface StravaCouponRepository extends JpaRepository<StravaCoupon, Long
 
     /** Lấy toàn bộ records StravaCoupon của 1 user */
     List<StravaCoupon> findByUserId(Long userId);
+
+    @Query("SELECT COALESCE(SUM(c.usedMeters),0) FROM StravaCoupon c "
+            + "WHERE c.userId=:userId AND c.createdAt BETWEEN :from AND :to")
+    int sumUsedMetersByPeriod(Long userId, LocalDateTime from, LocalDateTime to);
+
+    // Tổng số coupon của user trong khoảng thời gian
+    int countByUserIdAndCreatedAtBetween(
+            Long userId,
+            LocalDateTime from,
+            LocalDateTime to
+    );
 }
