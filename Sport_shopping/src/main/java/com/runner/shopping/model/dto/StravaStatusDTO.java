@@ -13,4 +13,9 @@ public class StravaStatusDTO {
     private String averagePace;       // format "mm:ss"
     private int AvailableKm;          // floor(total) - usedKm
     private int currentDiscount;      // (availableKm/5)*10
+    /** true nếu đã hoặc sắp dùng hết hạn mức tháng */
+    private boolean nearLimit;
+
+    /** Thông điệp cảnh báo khi nearLimit == true */
+    private String warningMessage;
 }
