@@ -28,7 +28,8 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
             "(:status IS NULL OR o.status = :status) AND " +
             "(:userId IS NULL OR o.userId = :userId) AND " +
             "(:startDate IS NULL OR o.createdAt >= :startDate) AND " +
-            "(:endDate IS NULL OR o.createdAt <= :endDate)")
+            "(:endDate IS NULL OR o.createdAt <= :endDate)" +
+            "ORDER BY o.createdAt DESC")
     Page<Orders> findOrdersWithFilters(
             @Param("status") OrderStatus status,
             @Param("userId") Long userId,

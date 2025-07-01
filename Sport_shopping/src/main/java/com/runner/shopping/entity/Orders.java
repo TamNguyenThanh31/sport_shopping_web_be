@@ -41,7 +41,7 @@ public class Orders {
     @Column(nullable = false)
     private OrderStatus status = OrderStatus.PENDING;
 
-    // Trạng thái thanh toán: PENDING, COMPLETED, FAILED, CANCELLED, REFUNDED (sẽ thêm enum REFUNDED)
+    // Trạng thái thanh toán: PENDING, COMPLETED, FAILED, CANCELLED, REFUNDED
     @Convert(converter = PaymentStatusConverter.class)
     @Column(name = "payment_status", nullable = false)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;

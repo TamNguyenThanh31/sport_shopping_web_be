@@ -11,41 +11,26 @@ import com.runner.shopping.repository.UserRepository;
 import com.runner.shopping.service.StravaService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.net.URI;
-import java.security.Principal;
-import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/strava")
+@AllArgsConstructor
 public class StravaController {
     private final StravaService strava;
     private final StravaCouponRepository couponRepo;
     private final PromotionRepository promoRepo;
     private final PromotionMapper promoMapper;
     private final UserRepository userRepo;
-
-    public StravaController(StravaService strava,
-                            StravaCouponRepository couponRepo,
-                            PromotionRepository promoRepo,
-                            PromotionMapper promoMapper,
-                            UserRepository userRepo) {
-        this.strava = strava;
-        this.couponRepo = couponRepo;
-        this.promoRepo = promoRepo;
-        this.promoMapper = promoMapper;
-        this.userRepo = userRepo;
-    }
 
     // OAuth callback
     @GetMapping("/callback")
