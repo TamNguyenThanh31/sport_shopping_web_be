@@ -110,7 +110,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/promotions",
                                 "/api/promotions/**")
-                        .hasAnyAuthority("ROLE_STAFF","ROLE_CUSTOMER")
+                        .hasAnyAuthority("ROLE_STAFF","ROLE_ADMIN", "ROLE_CUSTOMER")
 
                         // 5. Strava coupons riêng
                         .requestMatchers(HttpMethod.GET,
