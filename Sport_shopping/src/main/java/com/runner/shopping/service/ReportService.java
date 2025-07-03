@@ -12,14 +12,28 @@ import java.util.Map;
 
 public interface ReportService {
     Long countOrdersToday();
-    BigDecimal sumRevenueToday();
-    BigDecimal sumProfitToday();
-    Map<String, List<ProductVariantInfoDTO>> getCurrentStockByName();
-    BigDecimal sumRevenueThisWeek();
-    BigDecimal sumProfitThisWeek();
 
-    BigDecimal sumRevenueThisMonth();
-    BigDecimal sumProfitThisMonth();
+    BigDecimal sumRevenueToday();
+
+    BigDecimal sumProfitToday();
+
+    Map<String, List<ProductVariantInfoDTO>> getCurrentStockByName();
+
+    /**
+     * Tổng doanh thu trong khoảng thời gian [startDate, endDate]
+     * @param startDate thời điểm bắt đầu (không null)
+     * @param endDate thời điểm kết thúc (nếu null thì lấy thời điểm hiện tại)
+     * @return tổng doanh thu
+     */
+    BigDecimal sumRevenueBetween(LocalDateTime startDate, LocalDateTime endDate);
+
+    /**
+     * Tổng lợi nhuận trong khoảng thời gian [startDate, endDate]
+     * @param startDate thời điểm bắt đầu (không null)
+     * @param endDate thời điểm kết thúc (nếu null thì lấy thời điểm hiện tại)
+     * @return tổng lợi nhuận
+     */
+    BigDecimal sumProfitBetween(LocalDateTime startDate, LocalDateTime endDate);
 
     /**
      * Trả về Page các đơn hàng trong khoảng [from, to], mỗi đơn có:
@@ -42,16 +56,17 @@ public interface ReportService {
                 pageable
         );
     }
-    default Page<ReportOrderDTO> revenueDetailThisWeek(Long staffId, Pageable pageable) {
-        LocalDateTime monday = LocalDateTime.now()
-                .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-                .toLocalDate().atStartOfDay();
-        return revenueDetail(staffId, monday, LocalDateTime.now(), pageable);
-    }
-    default Page<ReportOrderDTO> revenueDetailThisMonth(Long staffId, Pageable pageable) {
-        LocalDateTime first = LocalDateTime.now()
-                .withDayOfMonth(1)
-                .toLocalDate().atStartOfDay();
-        return revenueDetail(staffId, first, LocalDateTime.now(), pageable);
+
+    default Page<ReportOrderDTO> revenueDetailByDateRange(Long staffId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+        if (startDate == null) {
+            throw new IllegalArgumentException("startDate không được null");
+        }
+        if (endDate == null) {
+            endDate = LocalDateTime.now();
+        }
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("startDate phải trước hoặc bằng endDate");
+        }
+        return revenueDetail(staffId, startDate, endDate, pageable);
     }
 }

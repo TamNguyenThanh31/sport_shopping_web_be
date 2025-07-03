@@ -3,6 +3,7 @@ package com.runner.shopping.service;
 
 import com.runner.shopping.enums.OrderStatus;
 import com.runner.shopping.model.dto.OrderDTO;
+import com.runner.shopping.model.dto.TopSellingProductDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -24,4 +25,7 @@ public interface OrderService {
     Page<OrderDTO> getAllOrders(Long staffId, OrderStatus status, Long userId, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
 
     String initiateVNPayPayment(Long orderId, Long userId, String returnUrl);
+
+    List<TopSellingProductDTO> getTopSellingProducts(LocalDateTime startDate, LocalDateTime endDate, int limit);
+
 }

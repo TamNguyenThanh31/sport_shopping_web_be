@@ -52,4 +52,15 @@ public interface OrderRepository extends JpaRepository<Orders, Long> {
     BigDecimal sumProfitSince(
             @Param("includeStatuses") List<OrderStatus> includeStatuses,
             @Param("startOfDay") LocalDateTime startOfDay);
+
+    //Tông doanh thu và lợi nhuận theo param truyền vào
+    @Query("SELECT SUM(o.totalPrice) FROM Orders o WHERE o.status IN :validStatuses AND o.createdAt >= :startDate AND o.createdAt <= :endDate")
+    BigDecimal sumRevenueBetween(@Param("validStatuses") List<OrderStatus> validStatuses,
+                                 @Param("startDate") LocalDateTime startDate,
+                                 @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT SUM(o.totalProfit) FROM Orders o WHERE o.status IN :validStatuses AND o.createdAt >= :startDate AND o.createdAt <= :endDate")
+    BigDecimal sumProfitBetween(@Param("validStatuses") List<OrderStatus> validStatuses,
+                                @Param("startDate") LocalDateTime startDate,
+                                @Param("endDate") LocalDateTime endDate);
 }

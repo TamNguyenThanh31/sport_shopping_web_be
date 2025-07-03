@@ -2,10 +2,7 @@
 package com.runner.shopping.service.impl;
 
 import com.runner.shopping.entity.ProductVariant;
-import com.runner.shopping.model.dto.OrderDTO;
-import com.runner.shopping.model.dto.ProductVariantInfoDTO;
-import com.runner.shopping.model.dto.ReportOrderDTO;
-import com.runner.shopping.model.dto.ReportOrderItemDTO;
+import com.runner.shopping.model.dto.*;
 import com.runner.shopping.repository.OrderRepository;
 import com.runner.shopping.repository.ProductVariantRepository;
 import com.runner.shopping.repository.UserRepository;
@@ -39,21 +36,18 @@ public class ReportServiceImpl implements ReportService {
     // 1. Số đơn và báo cáo “Hôm nay”
     //───────────────────────────────────────────────────────────────────────────────
 
-    /** Đếm tổng số đơn từ 00:00 hôm nay đến giờ */
     @Override
     public Long countOrdersToday() {
         LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
         return orderRepository.countOrdersSince(startOfToday);
     }
 
-    /** Tổng doanh thu “hôm nay” (status = CONFIRMED || DELIVERED) */
     @Override
     public BigDecimal sumRevenueToday() {
         LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
         return orderRepository.sumRevenueSince(VALID_STATUSES, startOfToday);
     }
 
-    /** Tổng lợi nhuận “hôm nay” (status = CONFIRMED || DELIVERED) */
     @Override
     public BigDecimal sumProfitToday() {
         LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
@@ -61,56 +55,35 @@ public class ReportServiceImpl implements ReportService {
     }
 
     //───────────────────────────────────────────────────────────────────────────────
-    // 2. Báo cáo theo Tuần / Tháng
+    // 2. Báo cáo doanh thu/lợi nhuận theo khoảng thời gian tùy chọn
     //───────────────────────────────────────────────────────────────────────────────
 
-    /** Tổng doanh thu “tuần này” (từ thứ Hai 00:00 đến giờ) */
     @Override
-    public BigDecimal sumRevenueThisWeek() {
-        LocalDate today = LocalDate.now();
-        LocalDate startOfWeekDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDateTime startOfWeek = startOfWeekDate.atStartOfDay();
-        return orderRepository.sumRevenueSince(VALID_STATUSES, startOfWeek);
+    public BigDecimal sumRevenueBetween(LocalDateTime startDate, LocalDateTime endDate) {
+        if (startDate == null) {
+            throw new IllegalArgumentException("startDate không được null");
+        }
+        if (endDate == null) {
+            endDate = LocalDateTime.now();
+        }
+        return orderRepository.sumRevenueBetween(VALID_STATUSES, startDate, endDate);
     }
 
-    /** Tổng lợi nhuận “tuần này” (từ thứ Hai 00:00 đến giờ) */
     @Override
-    public BigDecimal sumProfitThisWeek() {
-        LocalDate today = LocalDate.now();
-        LocalDate startOfWeekDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDateTime startOfWeek = startOfWeekDate.atStartOfDay();
-        return orderRepository.sumProfitSince(VALID_STATUSES, startOfWeek);
-    }
-
-    /** Tổng doanh thu “tháng này” (từ ngày 1 00:00 đến giờ) */
-    @Override
-    public BigDecimal sumRevenueThisMonth() {
-        LocalDate today = LocalDate.now();
-        LocalDate startOfMonthDate = today.withDayOfMonth(1);
-        LocalDateTime startOfMonth = startOfMonthDate.atStartOfDay();
-        return orderRepository.sumRevenueSince(VALID_STATUSES, startOfMonth);
-    }
-
-    /** Tổng lợi nhuận “tháng này” (từ ngày 1 00:00 đến giờ) */
-    @Override
-    public BigDecimal sumProfitThisMonth() {
-        LocalDate today = LocalDate.now();
-        LocalDate startOfMonthDate = today.withDayOfMonth(1);
-        LocalDateTime startOfMonth = startOfMonthDate.atStartOfDay();
-        return orderRepository.sumProfitSince(VALID_STATUSES, startOfMonth);
+    public BigDecimal sumProfitBetween(LocalDateTime startDate, LocalDateTime endDate) {
+        if (startDate == null) {
+            throw new IllegalArgumentException("startDate không được null");
+        }
+        if (endDate == null) {
+            endDate = LocalDateTime.now();
+        }
+        return orderRepository.sumProfitBetween(VALID_STATUSES, startDate, endDate);
     }
 
     //───────────────────────────────────────────────────────────────────────────────
     // 3. Tồn kho theo tên sản phẩm → danh sách biến thể
     //───────────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Lấy tồn kho hiện tại, trả về Map<productName, List<ProductVariantInfoDTO>>
-     * productVariantRepository.fetchActiveVariantsWithProductName() trả về mỗi Object[]:
-     *   [0] = productName (String)
-     *   [1] = variantName (String) (hay sku)
-     *   [2] = stock       (Long)
-     */
     @Override
     public Map<String, List<ProductVariantInfoDTO>> getCurrentStockByName() {
         List<Object[]> rows = productVariantRepository.fetchActiveVariantsWithProductName();
@@ -118,31 +91,28 @@ public class ReportServiceImpl implements ReportService {
         Map<String, List<ProductVariantInfoDTO>> stockMap = new HashMap<>();
         for (Object[] row : rows) {
             String productName = (String) row[0];
-            String variantName = (String) row[1]; //sku
+            String variantName = (String) row[1]; // sku
             Long   stock       = ((Number) row[2]).longValue();
 
             ProductVariantInfoDTO dto = new ProductVariantInfoDTO(variantName, stock);
 
-            stockMap
-                    .computeIfAbsent(productName, k -> new ArrayList<>())
-                    .add(dto);
+            stockMap.computeIfAbsent(productName, k -> new ArrayList<>()).add(dto);
         }
 
         return stockMap;
     }
 
+    //───────────────────────────────────────────────────────────────────────────────
+    // 4. Chi tiết doanh thu đơn hàng trong khoảng thời gian
+    //───────────────────────────────────────────────────────────────────────────────
+
     @Override
-    public Page<ReportOrderDTO> revenueDetail(
-            Long staffId,
-            LocalDateTime from,
-            LocalDateTime to,
-            Pageable pageable
-    ) {
+    public Page<ReportOrderDTO> revenueDetail(Long staffId, LocalDateTime from, LocalDateTime to, Pageable pageable) {
         // 1. Lấy Page<OrderDTO> (có sẵn orderDetails enriched)
         Page<OrderDTO> orders = orderService.getAllOrders(
                 staffId,
                 null,   // không lọc status
-                null,   // không lọc theo userId
+                null,   // không lọc userId
                 from,
                 to,
                 pageable
@@ -158,12 +128,10 @@ public class ReportServiceImpl implements ReportService {
             // 2.2. Chuyển OrderDetailDTO → ReportOrderItemDTO
             var items = orderDto.getOrderDetails().stream()
                     .map(d -> {
-                        // Tính lợi nhuận từng dòng
                         BigDecimal lineProfit = d.getPriceAtTime()
                                 .subtract(d.getCostAtTime())
                                 .multiply(BigDecimal.valueOf(d.getQuantity()));
 
-                        // Lấy sku từ ProductVariantRepository
                         String sku = productVariantRepository
                                 .findByIdNotDeleted(d.getVariantId())
                                 .map(ProductVariant::getSku)
@@ -193,3 +161,4 @@ public class ReportServiceImpl implements ReportService {
         });
     }
 }
+
