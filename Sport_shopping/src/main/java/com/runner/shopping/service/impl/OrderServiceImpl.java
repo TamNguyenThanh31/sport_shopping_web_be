@@ -12,6 +12,7 @@ import com.runner.shopping.mapper.AddressMapper;
 import com.runner.shopping.mapper.OrderMapper;
 import com.runner.shopping.model.dto.OrderDTO;
 import com.runner.shopping.model.dto.OrderDetailDTO;
+import com.runner.shopping.model.dto.TopSellingProductDTO;
 import com.runner.shopping.repository.*;
 import com.runner.shopping.service.OrderService;
 import com.runner.shopping.util.VnPayUtil;
@@ -30,6 +31,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final AddressMapper addressMapper;
     private final PaymentRepository paymentsRepository;
+    private final OrderDetailRepository orderDetailsRepository;
 
     @Override
     @Transactional
@@ -399,11 +402,11 @@ public class OrderServiceImpl implements OrderService {
                 BigDecimal refundAmt = null;
                 LocalDateTime refundedAt = null;
 
-                // Nếu trạng thái REFUNDED thì set refundAmount + refundedAt
-                if (nextPay == PaymentStatus.REFUNDED) {
-                    refundAmt  = order.getTotalPrice();
-                    refundedAt = LocalDateTime.now();
-                }
+//                // Nếu trạng thái REFUNDED thì set refundAmount + refundedAt
+//                if (nextPay == PaymentStatus.REFUNDED) {
+//                    refundAmt  = order.getTotalPrice();
+//                    refundedAt = LocalDateTime.now();
+//                }
 
                 paymentRepository.updateStatusAndRefund(
                         latestPay.getId(),
@@ -424,7 +427,7 @@ public class OrderServiceImpl implements OrderService {
     /**
      * Ánh xạ OrderStatus → PaymentStatus theo nghiệp vụ:
      * - DELIVERED + COD      → COMPLETED
-     * - DELIVERED + VNPAY    → giữ nguyên (COMPLETED từ trước)
+     * - DELIVERED + VNPAY    → giữ nguyên
      * - CANCELLED + VNPAY    → REFUNDED
      * - CANCELLED + (COD)    → CANCELLED
      * - Các trạng thái khác  → null (không đổi)
@@ -438,6 +441,18 @@ public class OrderServiceImpl implements OrderService {
                 && payMethod == PaymentMethod.CASH_ON_DELIVERY
                 && currentPay != PaymentStatus.COMPLETED) {
             return PaymentStatus.COMPLETED;
+        }
+
+        if (orderSt == OrderStatus.DELIVERED
+                && payMethod == PaymentMethod.VNPAY
+                && currentPay != PaymentStatus.COMPLETED) {
+            return PaymentStatus.COMPLETED;
+        }
+
+        if (orderSt == OrderStatus.PENDING
+                && payMethod == PaymentMethod.VNPAY
+                && currentPay != PaymentStatus.PENDING) {
+            return PaymentStatus.PENDING;
         }
 
         if (orderSt == OrderStatus.CANCELLED) {
@@ -648,6 +663,35 @@ public class OrderServiceImpl implements OrderService {
                 })
                 .collect(Collectors.toList());
     }
+
+    //───────────────────────────────────────────────────────────────────────────────
+    // Top 10 sản phẩm bán chạy
+    //───────────────────────────────────────────────────────────────────────────────
+    @Override
+    public List<TopSellingProductDTO> getTopSellingProducts(LocalDateTime startDate, LocalDateTime endDate, int limit) {
+        if (startDate == null) {
+            startDate = LocalDateTime.of(2000, 1, 1, 0, 0);
+        }
+        if (endDate == null) {
+            endDate = LocalDateTime.now();
+        }
+        if (limit <= 0) {
+            limit = 10; // mặc định lấy 10
+        }
+
+        List<Object[]> results = orderDetailsRepository.findTopSellingProducts(startDate, endDate, limit);
+        List<TopSellingProductDTO> dtos = new ArrayList<>();
+        for (Object[] row : results) {
+            Long productId = ((Number) row[0]).longValue();
+            String productName = (String) row[1];
+            Long variantId = ((Number) row[2]).longValue();
+            String variantSku = (String) row[3];
+            Integer totalQuantitySold = ((Number) row[4]).intValue();
+            dtos.add(new TopSellingProductDTO(productId, productName, variantId, variantSku, totalQuantitySold));
+        }
+        return dtos;
+    }
+
 
     private void validateUser(Long userId) {
         userRepository.findById(userId)
