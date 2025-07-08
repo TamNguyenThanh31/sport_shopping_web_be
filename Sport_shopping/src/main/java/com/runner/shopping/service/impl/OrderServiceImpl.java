@@ -402,11 +402,11 @@ public class OrderServiceImpl implements OrderService {
                 BigDecimal refundAmt = null;
                 LocalDateTime refundedAt = null;
 
-                // Nếu trạng thái REFUNDED thì set refundAmount + refundedAt
-                if (nextPay == PaymentStatus.REFUNDED) {
-                    refundAmt  = order.getTotalPrice();
-                    refundedAt = LocalDateTime.now();
-                }
+//                // Nếu trạng thái REFUNDED thì set refundAmount + refundedAt
+//                if (nextPay == PaymentStatus.REFUNDED) {
+//                    refundAmt  = order.getTotalPrice();
+//                    refundedAt = LocalDateTime.now();
+//                }
 
                 paymentRepository.updateStatusAndRefund(
                         latestPay.getId(),
@@ -427,7 +427,7 @@ public class OrderServiceImpl implements OrderService {
     /**
      * Ánh xạ OrderStatus → PaymentStatus theo nghiệp vụ:
      * - DELIVERED + COD      → COMPLETED
-     * - DELIVERED + VNPAY    → giữ nguyên (COMPLETED từ trước)
+     * - DELIVERED + VNPAY    → giữ nguyên
      * - CANCELLED + VNPAY    → REFUNDED
      * - CANCELLED + (COD)    → CANCELLED
      * - Các trạng thái khác  → null (không đổi)
@@ -441,6 +441,18 @@ public class OrderServiceImpl implements OrderService {
                 && payMethod == PaymentMethod.CASH_ON_DELIVERY
                 && currentPay != PaymentStatus.COMPLETED) {
             return PaymentStatus.COMPLETED;
+        }
+
+        if (orderSt == OrderStatus.DELIVERED
+                && payMethod == PaymentMethod.VNPAY
+                && currentPay != PaymentStatus.COMPLETED) {
+            return PaymentStatus.COMPLETED;
+        }
+
+        if (orderSt == OrderStatus.PENDING
+                && payMethod == PaymentMethod.VNPAY
+                && currentPay != PaymentStatus.PENDING) {
+            return PaymentStatus.PENDING;
         }
 
         if (orderSt == OrderStatus.CANCELLED) {

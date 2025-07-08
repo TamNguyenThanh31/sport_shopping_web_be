@@ -265,6 +265,10 @@ public class AdminController {
         return ResponseEntity.ok(data);
     }
 
+
+    // ──────────────────────────────────────────────────────────────────────────────
+        // API CHO DASHBOARD – TOP SẢN PHẨM BÁN CHẠY
+    // ──────────────────────────────────────────────────────────────────────────────
     @GetMapping("/reports/top-selling")
     public ResponseEntity<List<TopSellingProductDTO>> getTopSellingProducts(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
