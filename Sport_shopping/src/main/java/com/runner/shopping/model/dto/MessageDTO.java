@@ -11,5 +11,4 @@ public class MessageDTO {
     private Long receiverId;
     private String content;
     private LocalDateTime timestamp;
-    private Boolean readStatus;
 }

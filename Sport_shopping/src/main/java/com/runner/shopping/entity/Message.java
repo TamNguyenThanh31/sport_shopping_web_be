@@ -27,7 +27,4 @@ public class Message {
 
     @Column(name = "timestamp", nullable = false)
     private LocalDateTime timestamp;
-
-    @Column(name = "read_status", nullable = false)
-    private Boolean readStatus = false;
 }

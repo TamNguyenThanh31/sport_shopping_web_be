@@ -20,13 +20,4 @@ public interface MessageService {
      */
     List<MessageDTO> getMessagesBySession(Long sessionId);
 
-    /**
-     * Đánh dấu message đã đọc (receiver gọi lên). Nếu cần thực hiện readReceipt.
-     */
-    void markMessageRead(Long messageId, Long userId);
-
-    /**
-     * Lấy message mới (chưa read) cho một user trong một session (có thể dùng để hiển thị số tin nhắn chưa đọc)
-     */
-    List<MessageDTO> getUnreadMessages(Long sessionId, Long userId);
 }

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 
+
 @Controller
 public class ChatController {
 
@@ -90,7 +91,7 @@ public class ChatController {
 
         // --- 6. Nếu staff chưa online (receiverId = 0), thông báo cho customer ---
         if (receiverId == 0L) {
-            String notice = "Hiện chưa có nhân viên online, tin nhắn của bạn sẽ được gửi khi có nhân viên.";
+            String notice = "Hiện chưa có nhân viên online. Tin nhắn của bạn sẽ được để trong hàng chờ ";
             // Gửi về riêng cho customer qua user-specific queue "/user/{username}/queue/notifications"
             messagingTemplate.convertAndSendToUser(
                     username,
@@ -126,14 +127,14 @@ public class ChatController {
      * 3) Khi client thông báo đã đọc message (markRead), payload chỉ chứa messageId,
      *    chúng ta cũng cần lấy userId từ principal.
      */
-    @MessageMapping("/chat.markRead")
-    public void markRead(@Header("messageId") Long messageId, Principal principal) {
-        String username = principal.getName();
-        User user = userService.findByUsername(username);
-        Long userId = user.getId();
-
-        messageService.markMessageRead(messageId, userId);
-
-        // (Nếu cần, có thể broadcast lại event read receipt, v.v.)
-    }
+//    @MessageMapping("/chat.markRead")
+//    public void markRead(@Header("messageId") Long messageId, Principal principal) {
+//        String username = principal.getName();
+//        User user = userService.findByUsername(username);
+//        Long userId = user.getId();
+//
+//        messageService.markMessageRead(messageId, userId);
+//
+//        // (Nếu cần, có thể broadcast lại event read receipt, v.v.)
+//    }
 }
