@@ -19,12 +19,12 @@ import java.util.Collections;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
+//filter chỉ chạy một lần cho mỗi request
     @Autowired
     private JwtUtil jwtUtil;
 
     @Autowired
-    private UserDetailsService userDetailsService;
+    private UserDetailsService userDetailsService; //userDetailsService: Dùng để lấy thông tin user từ database (thường là CustomUserDetailsService).
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -33,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (path.equals("/api/users/login") || path.equals("/api/users/register")) {
             chain.doFilter(request, response);
             return;
-        }
+        } //nếu là request login hoặc register thì không cần xác thực JWT
 
         final String authorizationHeader = request.getHeader("Authorization");
 
