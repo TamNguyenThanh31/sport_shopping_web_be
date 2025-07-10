@@ -19,6 +19,7 @@ public interface UserService {
     Page<User> findAll(Pageable pageable);
     Page<User> searchUsers(String keyword, Pageable pageable);
     User updateUser(User user);
+    User updatePasswordCustomer(Long userId, String oldPassword, String newPassword);
     void deleteUser(Long id);
     Long getUserIdByUsername(String username);
 }

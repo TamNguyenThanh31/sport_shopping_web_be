@@ -5,11 +5,13 @@ import com.runner.shopping.entity.User;
 import com.runner.shopping.mapper.UserMapper;
 import com.runner.shopping.model.dto.UserDTO;
 import com.runner.shopping.model.request.LoginRequest;
+import com.runner.shopping.model.request.UpdatePassword;
 import com.runner.shopping.model.response.LoginResponse;
 import com.runner.shopping.security.JwtUtil;
 import com.runner.shopping.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -64,5 +66,19 @@ public class UserController {
 
         User savedUser = userService.updateUser(currentUser);
         return ResponseEntity.ok(userMapper.toDTO(savedUser));
+    }
+
+    // Đổi mật khẩu check mật khẩu cũ
+    @PutMapping("/change-password")
+    public ResponseEntity<?> changePassword(Authentication authentication, @RequestBody UpdatePassword request) {
+        String currentUsername = authentication.getName();
+        User user = userService.findByUsername(currentUsername);
+
+        try {
+            userService.updatePasswordCustomer(user.getId(), request.getOldPassword(), request.getNewPassword());
+            return ResponseEntity.ok("Password changed successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 }

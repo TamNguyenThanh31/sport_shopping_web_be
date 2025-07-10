@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/users/register",
                                 "/api/users/login",
+                                "/api/users",
                                 "/uploads/**",
                                 "/error",
                                 "/ws-support/**",
