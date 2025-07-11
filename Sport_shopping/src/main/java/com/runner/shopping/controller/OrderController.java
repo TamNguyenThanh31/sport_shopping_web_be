@@ -56,15 +56,15 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{id}/status")
-    public ResponseEntity<OrderDTO> updateOrderStatus(@PathVariable Long id,
-                                                      @RequestParam OrderStatus status,
-                                                      @RequestParam Long staffId) {
-        log.info("Updating status of order ID: {} to {} by staffId: {}", id, status, staffId);
-        OrderDTO updatedOrder = orderService.updateOrderStatus(id, status, staffId);
-        log.info("Updated order ID: {} to status: {}", id, status);
-        return ResponseEntity.ok(updatedOrder);
-    }
+//    @PutMapping("/{id}/status")
+//    public ResponseEntity<OrderDTO> updateOrderStatus(@PathVariable Long id,
+//                                                      @RequestParam OrderStatus status,
+//                                                      @RequestParam Long staffId) {
+//        log.info("Updating status of order ID: {} to {} by staffId: {}", id, status, staffId);
+//        OrderDTO updatedOrder = orderService.updateOrderStatus(id, status, staffId);
+//        log.info("Updated order ID: {} to status: {}", id, status);
+//        return ResponseEntity.ok(updatedOrder);
+//    }
 
     @GetMapping("/all")
     @Operation(summary = "Get all orders with filters and pagination", description = "Retrieves all orders with optional filters and pagination for staff or admin")

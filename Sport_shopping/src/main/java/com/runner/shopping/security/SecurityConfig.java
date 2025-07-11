@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/users/register",
                                 "/api/users/login",
+                                "/api/users",
                                 "/uploads/**",
                                 "/error",
                                 "/ws-support/**",
@@ -95,17 +96,21 @@ public class SecurityConfig {
                                 "/api/strava/redeem-coupon"
                         ).hasAuthority("ROLE_CUSTOMER")
 
-                        // 5. Staff‐only endpoints
+                        // Chỉ định nhắn tin
                         .requestMatchers(HttpMethod.POST,
-                                "/api/promotions",
                                 "/api/sessions/{sessionId}/assign"
                         ).hasAuthority("ROLE_STAFF")
+
+                        // 5. Staff‐only endpoints
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/promotions"
+                        ).hasAnyAuthority("ROLE_STAFF", "ROLE_ADMIN")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/promotions/**"
-                        ).hasAuthority("ROLE_STAFF")
+                        ).hasAnyAuthority("ROLE_STAFF", "ROLE_ADMIN")
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/promotions/**"
-                        ).hasAuthority("ROLE_STAFF")
+                        ).hasAnyAuthority("ROLE_STAFF", "ROLE_ADMIN")
 
                         .requestMatchers(HttpMethod.GET,
                                 "/api/promotions",
@@ -132,7 +137,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**")
                         .hasAuthority("ROLE_ADMIN")
 
-                        // 8. WebSocket/SockJS STOMP endpoints
+                        // 8. WebSocket STOMP endpoints
                         .requestMatchers("/ws-support/**", "/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/topic/**", "/queue/**"

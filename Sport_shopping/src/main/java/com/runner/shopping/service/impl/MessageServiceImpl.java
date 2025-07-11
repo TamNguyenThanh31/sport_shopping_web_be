@@ -40,7 +40,6 @@ public class MessageServiceImpl implements MessageService {
         message.setReceiverId(messageDto.getReceiverId());
         message.setContent(messageDto.getContent());
         message.setTimestamp(LocalDateTime.now());
-        message.setReadStatus(false);
 
         Message saved = messageRepository.save(message);
 
@@ -59,22 +58,4 @@ public class MessageServiceImpl implements MessageService {
                 .collect(Collectors.toList());
     }
 
-    @Override
-    @Transactional
-    public void markMessageRead(Long messageId, Long userId) {
-        Message msg = messageRepository.findById(messageId)
-                .orElseThrow(() -> new IllegalArgumentException("Message không tồn tại: " + messageId));
-        // Chỉ cho phép receiver (người nhận) đánh dấu đọc
-        if (!msg.getReceiverId().equals(userId)) {
-            throw new IllegalStateException("Bạn không có quyền đánh dấu tin nhắn này");
-        }
-        msg.setReadStatus(true);
-        messageRepository.save(msg);
-    }
-
-    @Override
-    public List<MessageDTO> getUnreadMessages(Long sessionId, Long userId) {
-        List<Message> list = messageRepository.findBySessionIdAndReceiverIdAndReadStatusFalse(sessionId, userId);
-        return list.stream().map(messageMapper::toDto).collect(Collectors.toList());
-    }
 }

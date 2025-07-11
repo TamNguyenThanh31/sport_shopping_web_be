@@ -49,8 +49,6 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(name = "online_status", nullable = false)
-    private boolean onlineStatus = false;
 
     @PrePersist
     public void prePersist() {
