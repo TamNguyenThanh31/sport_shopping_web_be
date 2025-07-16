@@ -20,6 +20,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPhoneNumber(String phoneNumber);
 
+    Optional<User> findByStravaId(String stravaId);
+
     @Query("SELECT u FROM User u WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
             "OR LOWER(u.phoneNumber) LIKE LOWER(CONCAT('%', :keyword, '%'))")

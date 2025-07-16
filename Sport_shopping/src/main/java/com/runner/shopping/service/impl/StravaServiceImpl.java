@@ -30,6 +30,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.runner.shopping.entity.User;
+import com.runner.shopping.repository.UserRepository;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -40,18 +43,21 @@ public class StravaServiceImpl implements StravaService {
     private final PromotionRepository promoRepo;
     private final PromotionMapper promoMapper;
     private final RestTemplate rt = new RestTemplate();
+    private final UserRepository userRepository;
 
     public StravaServiceImpl(
             StravaProperties props,
             StravaTokenRepository tokenRepo,
             StravaCouponRepository couponRepo,
             PromotionRepository promoRepo,
-            PromotionMapper promoMapper) {
+            PromotionMapper promoMapper,
+            UserRepository userRepository) {
         this.props = props;
         this.tokenRepo = tokenRepo;
         this.couponRepo = couponRepo;
         this.promoRepo = promoRepo;
         this.promoMapper = promoMapper;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -76,6 +82,19 @@ public class StravaServiceImpl implements StravaService {
         t.setExpiresAt(Instant.ofEpochSecond(
                 ((Number) resp.get("expires_at")).longValue()));
         tokenRepo.save(t);
+
+        // Sau khi lấy access token và stravaId từ Strava API
+        String stravaId = ((Map<String, Object>) resp.get("athlete")).get("id").toString();
+
+        Optional<User> existing = userRepository.findByStravaId(stravaId);
+        if (existing.isPresent() && !existing.get().getId().equals(userId)) {
+            throw new IllegalArgumentException("Tài khoản Strava này đã được liên kết với user khác!");
+        }
+
+        // Cập nhật stravaId cho user hiện tại
+        User user = userRepository.findById(userId).orElseThrow();
+        user.setStravaId(stravaId);
+        userRepository.save(user);
     }
 
     @Override
@@ -192,7 +211,6 @@ public class StravaServiceImpl implements StravaService {
                     "Bạn đã đạt giới hạn " + props.getMaxRedeemsPerMonth() + " coupon/tháng."
             );
         }
-
         // 2) Kiểm requestedMeters
         StravaStatusDTO status = getStatus(userId, 30);
         if (requestedMeters < 100) {
