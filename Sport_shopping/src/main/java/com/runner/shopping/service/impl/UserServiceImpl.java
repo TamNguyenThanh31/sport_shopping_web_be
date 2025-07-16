@@ -121,7 +121,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         if (!passwordEncoder.matches(oldPassword, existingUser.getPassword())) {
-            throw new IllegalArgumentException("Old password is incorrect");
+            throw new IllegalArgumentException("Mật khẩu cũ không khớp");
         }
 
         existingUser.setPassword(passwordEncoder.encode(newPassword));
